@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall -pedantic
+CFLAGS=-Werror​ -Wall -pedantic
 
 all:
 	$(CC) sv.c -o server

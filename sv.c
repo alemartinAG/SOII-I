@@ -1,9 +1,10 @@
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <stdbool.h> 
 
 #define PORTN 6020 //numero de puerto
@@ -14,7 +15,6 @@ int main(){
 	
 	int socketFileDescr, newSockFd;
 	char buffer[SIZE];
-	int portNumber = PORTN;
 
 	char password[36] = "password";
 
@@ -31,7 +31,7 @@ int main(){
 
 	sv_addr.sin_family = AF_INET; //TODO: comments about
 	sv_addr.sin_addr.s_addr = INADDR_ANY;
-	sv_addr.sin_port = htons(portNumber); //convierto a network byte order	
+	sv_addr.sin_port = htons(PORTN); //convierto a network byte order	
 
 	if(bind(socketFileDescr, (struct sockaddr*)&sv_addr, 
 			sizeof(sv_addr)) < 0){
@@ -71,7 +71,7 @@ int main(){
 				//TODO: Msg de confirmacion
 			}
 			else {
-				printf("\nnombre de usuario y/o contraseña incorrecto\n");
+				printf("\nNombre de usuario y/o contraseña incorrecto\n");
 			}
 
 		}
