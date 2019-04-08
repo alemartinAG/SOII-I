@@ -141,7 +141,7 @@ void updateFirmware(){
     FILE *fp;
 
     char * match;
-    char buffer[8000] = "";
+    char buffer[8000];
     size_t bytes_read;
     char data_found[64] = "";
 
@@ -158,17 +158,19 @@ void updateFirmware(){
     match = strstr(buffer, seccion);
     //strcat(seccion, "%[^\n]");
     sscanf(match, "%[^\n]", data_found);
-
-    printf("ENCONTRE: %s\n", data_found);
     
     char *token;
-    
+
     /* get the first token */
     token = strtok(data_found, "\"");
 
+    char replace[SIZE];
+    strcpy(replace, token);
+    strcat(replace, "\"");
+
     /* walk through other tokens */
     while(token != NULL) {
-        
+
         if(strlen(token) <= 2){
             versionActual = atoi(token);
             break;
@@ -178,6 +180,14 @@ void updateFirmware(){
     }
 
     versionActual++;
+
+    char version[SIZE];
+    sprintf(version, "%d", versionActual);
+    strcat(replace, version);
+    strcat(replace, "\"};");
+
+    strncpy(match, replace, strlen(replace));
+    printf("%s\n", buffer);
 
     fclose(fp);
 
