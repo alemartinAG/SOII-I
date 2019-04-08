@@ -9,14 +9,16 @@
 #include <time.h>
 
 #define SIZE 80 //tamaño de buffer
+#define ERROR 1 //codigo de error para exit
 
 void scan();
 void telemetria();
 void update();
 void enviarDato(char[]);
+char * getUptime();
 
 int SAT_ID;
-char VERSION[] = {"1.0"};
+char VERSION[] = {"1"};
 int socketFileDescr;
 
 int main(int argc, char *argv[]){
@@ -49,7 +51,7 @@ int main(int argc, char *argv[]){
 
 	if((socketFileDescr = socket(AF_UNIX, SOCK_STREAM, 0)) < 0){
 		perror("creación de socket");
-		exit(1);
+		exit(ERROR);
 	}
 
 	//Intento conectar al socket constantemente
@@ -67,7 +69,7 @@ int main(int argc, char *argv[]){
 
         if(read(socketFileDescr, buffer, SIZE) < 0){
             perror("lectura de socket");
-            exit(1);
+            exit(ERROR);
         }
 
   		switch(atoi(buffer)){
@@ -96,6 +98,8 @@ void scan(){
 
 void update(){
 
+	enviarDato("FIN");
+
 }
 
 void telemetria(){
@@ -122,10 +126,10 @@ void enviarDato(char dato[]){
 
 	if(write(socketFileDescr, dato, strlen(dato)) < 0){
         perror("escritura de socket");
-        exit(1);
+        exit(ERROR);
     }
 
-    //TODO: Ver tema del tiempo
+    //TODO: Usar separadores de mensajes
     usleep(1000);
 
 }

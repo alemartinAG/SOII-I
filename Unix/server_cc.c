@@ -16,12 +16,14 @@
 #define CYAN    "\x1b[36m"
 #define CRESET   "\x1b[0m"
 #define CLEAR "\033[H\033[J"
+#define ERROR 1 //codigo de error
 
 bool registro(char[], char[]);
 void identificar();
 int checkCommand(char[]);
+void updateFirmware();
 
-const char *commands[3] = { "update firmware.bin", 
+const char *commands[3] = { "1", 
                             "obtener telemetria", 
                             "start scanning"
                         };
@@ -37,14 +39,14 @@ int main(int argc, char *argv[]){
 
     if(argc != 2) {
         printf("Uso: %s <nombre_de_socket>\n", argv[0]);
-        exit(1);
+        exit(ERROR);
     }
 
     socketFileDescr = socket(AF_UNIX, SOCK_STREAM, 0);
 
     if(socketFileDescr < 0){
         perror("\nERROR abriendo el socket");
-        exit(1);
+        exit(ERROR);
     }
 
     unlink(argv[1]); //Remuevo el nombre de archivo si existe
@@ -57,7 +59,7 @@ int main(int argc, char *argv[]){
 
     if(bind(socketFileDescr, (struct sockaddr*)&sv_addr, sv_len) < 0){
         perror("\nERROR en el binding");
-        exit(1);
+        exit(ERROR);
     }
 
     //acepto conexiones
@@ -71,7 +73,7 @@ int main(int argc, char *argv[]){
 
     if(newSockFd < 0){
         perror("\nERROR en accept");
-        exit(1);
+        exit(ERROR);
     }
 
     while(1){
@@ -88,30 +90,34 @@ int main(int argc, char *argv[]){
         memset(buffer, 0, sizeof(buffer)); //Limpio el buffer
         sprintf(buffer, "%d", num);
 
+        if(num == 0){
+            updateFirmware();
+        }
+
         if(num > 0){
 
             //Si el comando existe lo envio
             if(write(newSockFd, buffer, strlen(buffer)) < 0){
                 perror("escritura de socket");
-                exit(1);
+                exit(ERROR);
             }
 
             else{
 
                 printf("\n");
-                bool recieving = true;
+                bool receiving = true;
 
-                while(recieving){
+                while(receiving){
 
                     memset(buffer, 0, sizeof(buffer));
 
                     if(read(newSockFd, buffer, SIZE) < 0){
                         perror("lectura de socket");
-                        exit(1);
+                        exit(ERROR);
                     }
 
                     if(!strcmp(buffer, "FIN")){
-                        recieving = false;
+                        receiving = false;
                     }
                     else{
                         printf("- %s\n", buffer);
@@ -123,6 +129,58 @@ int main(int argc, char *argv[]){
         }
 
     }
+}
+
+void updateFirmware(){
+
+    int versionActual;
+
+    printf("-UPDATE-\n");
+
+    char archivo[SIZE] = {"client_cc.c"};
+    FILE *fp;
+
+    char * match;
+    char buffer[8000] = "";
+    size_t bytes_read;
+    char data_found[64] = "";
+
+    fp = fopen(archivo, "r"); // modo de lectura
+    if (fp == NULL){
+        perror("ERROR abriendo archivo\n");
+        exit(ERROR);
+    }
+
+    bytes_read = fread(buffer, 1, sizeof(buffer), fp);
+    buffer[bytes_read] = '\0';
+
+    char seccion[SIZE] = {"char VERSION[] ="};
+    match = strstr(buffer, seccion);
+    //strcat(seccion, "%[^\n]");
+    sscanf(match, "%[^\n]", data_found);
+
+    printf("ENCONTRE: %s\n", data_found);
+    
+    char *token;
+    
+    /* get the first token */
+    token = strtok(data_found, "\"");
+
+    /* walk through other tokens */
+    while(token != NULL) {
+        
+        if(strlen(token) <= 2){
+            versionActual = atoi(token);
+            break;
+        }
+
+        token = strtok(NULL, "\"");
+    }
+
+    versionActual++;
+
+    fclose(fp);
+
 }
 
 int checkCommand(char reading[]){
@@ -171,6 +229,7 @@ void identificar(){
         if(registro("USER", USER) && registro("PASS", PASS)){
             identified = true;
             printf("\nAutentificado correctamente\n");
+            printf("\n - Eperando la conexion con el satelite - \n");
         }
         else{
 
@@ -178,7 +237,7 @@ void identificar(){
 
             if(intentos == TRIES){
                 perror("\nERROR en la identificacion (Demasiados Intentos)\n");
-                exit(1);
+                exit(ERROR);
             }
 
             printf("\nNombre de usuario y/o contraseña incorrecto, quedan %d intentos\n", 3-intentos);
