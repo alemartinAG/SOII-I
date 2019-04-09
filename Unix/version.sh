@@ -1,4 +1,3 @@
 #!/bin/bash
-fstr = echo "char VERSION"
-#ersionString = "char VERSION[] = {\"1.0\"};"
 
+gcc client_cc.c -o update

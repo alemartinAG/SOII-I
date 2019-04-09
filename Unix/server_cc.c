@@ -156,7 +156,6 @@ void updateFirmware(){
 
     char seccion[SIZE] = {"char VERSION[] ="};
     match = strstr(buffer, seccion);
-    //strcat(seccion, "%[^\n]");
     sscanf(match, "%[^\n]", data_found);
     
     char *token;
@@ -187,18 +186,16 @@ void updateFirmware(){
     strcat(replace, "\"};");
 
     strncpy(match, replace, strlen(replace));
-    //printf("%s\n", buffer);
 
     fclose(fp);
-
-    /*memset(archivo, '\0', sizeof(archivo));
-    strcpy(archivo, "client_cc_v");
-    strcat(archivo, version);
-    strcat(archivo, ".c");*/
 
     fp = fopen(archivo, "w"); // crea un nuevo file
-    fwrite(buffer, 1, sizeof(buffer), fp);
+    fwrite(buffer, 1, strlen(buffer), fp);
     fclose(fp);
+
+    system("./version.sh");
+
+    //TODO: borrar update despues de pasarlo
 
 
 }
