@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <time.h>
 
-#define SIZE 80 //tamaño de buffer
+#define SIZE 80 //buffSize de buffer
 #define ERROR 1 //codigo de error para exit
 
 void scan();
@@ -18,7 +18,7 @@ void enviarDato(char[]);
 char * getUptime();
 
 int SAT_ID;
-char VERSION[] = {"2"};
+char VERSION[] = {"4"};
 int socketFileDescr;
 
 int main(int argc, char *argv[]){
@@ -98,19 +98,34 @@ void scan(){
 
 void update(){
 
-	int TAM = 8000;
+	printf("-UPDATE-\n");
+
+	int TAM = 15000;
 	char buffer[TAM];
+	char buffSize[sizeof(unsigned long)];
+	unsigned long tamBinario;
 
 	if(read(socketFileDescr, buffer, TAM) < 0){
-            perror("lectura de socket");
-            exit(ERROR);
+        perror("lectura de socket");
+        exit(ERROR);
     }
+
+    if(read(socketFileDescr, buffSize, sizeof(unsigned long)) < 0){
+    	perror("lectura de socket");
+        exit(ERROR);
+    }
+
+    tamBinario = atoi(buffSize);
+
+    printf("tamBinario: %lu\n", tamBinario);
 
     FILE *fp;
 
-    fp = fopen("client_u", "w");
-    fwrite(buffer, 1, strlen(buffer), fp);
+    fp = fopen("client_u", "wb");
+    fwrite(buffer, 1, tamBinario, fp);
     fclose(fp);
+
+    printf("ESCRIBO EN archivo\n");
 
 	enviarDato("FIN");
 

@@ -22,7 +22,9 @@ bool registro(char[], char[]);
 void identificar();
 int checkCommand(char[]);
 void updateFirmware();
-char * leerArchivo(char[]);
+char * leerArchivo(char[], bool);
+
+unsigned long tamBinario;
 
 const char *commands[3] = { "1", 
                             "obtener telemetria", 
@@ -91,52 +93,68 @@ int main(int argc, char *argv[]){
         memset(buffer, 0, sizeof(buffer)); //Limpio el buffer
         sprintf(buffer, "%d", num);
 
-        if(num == 0){
-            updateFirmware();
-            system("./version.sh"); //corro shell script
-            //TODO: borrar update despues de pasarlo
-            char *bufferUpdate = leerArchivo("update");
+        //Si el comando existe lo envio
+        if(num >= 0){
 
             if(write(newSockFd, buffer, strlen(buffer)) < 0){
                 perror("escritura de socket");
                 exit(ERROR);
             }
 
-            free(buffer);
-            system(removeUpdate.sh)
+            //Update Firmware.bin
+            if(num == 0){
+                updateFirmware();
+                system("./version.sh"); //corro shell script
+                //TODO: borrar update despues de pasarlo
+                char *bufferUpdate = leerArchivo("update", true);
 
-        }
+                printf("strlen bufferUpdate: %lu\n", strlen(bufferUpdate));
+                printf("sizeof bufferUpdate: %lu\n", sizeof(bufferUpdate));
+                printf("sizeof * bufferUpdate: %lu\n", sizeof( * bufferUpdate));
+                printf("tamBinario: %lu\n", tamBinario);
 
-        if(num > 0){
 
-            //Si el comando existe lo envio
-            if(write(newSockFd, buffer, strlen(buffer)) < 0){
-                perror("escritura de socket");
-                exit(ERROR);
-            }
-
-            else{
-
-                printf("\n");
-                bool receiving = true;
-
-                while(receiving){
-
-                    memset(buffer, 0, sizeof(buffer));
-
-                    if(read(newSockFd, buffer, SIZE) < 0){
-                        perror("lectura de socket");
-                        exit(ERROR);
-                    }
-
-                    if(!strcmp(buffer, "FIN")){
-                        receiving = false;
-                    }
-                    else{
-                        printf("- %s\n", buffer);
-                    }
+                if(write(newSockFd, bufferUpdate, tamBinario) < 0){
+                    perror("escritura de socket");
+                    exit(ERROR);
                 }
 
+                free(bufferUpdate);
+
+                usleep(1000);
+
+                char buffSize[sizeof(unsigned long)];
+                sprintf(buffSize, "%lu", tamBinario);
+
+                if(write(newSockFd, buffSize, sizeof(unsigned long)) < 0){
+                    perror("escritura de socket");
+                    exit(ERROR);
+                }
+                
+                system("./removeUpdate.sh");
+            }
+
+
+
+
+            printf("\n");
+            bool receiving = true;
+
+            while(receiving){
+
+                memset(buffer, 0, sizeof(buffer));
+
+                if(read(newSockFd, buffer, SIZE) < 0){
+                    perror("lectura de socket");
+                    exit(ERROR);
+                }
+
+                if(!strcmp(buffer, "FIN")){
+                    receiving = false;
+                }
+                else{
+                    printf("- %s\n", buffer);
+                }
             }
 
         }
@@ -154,7 +172,7 @@ void updateFirmware(){
 
     //char archivo[SIZE] = {"client_cc.c"};
     //strcpy(buffer, leerArchivo("client_cc.c"));
-    char * buffer = leerArchivo("client_cc.c");
+    char * buffer = leerArchivo("client_cc.c", false);
 
     //printf("BUFFER:\n\n%s\n", buffer);
 
@@ -204,24 +222,45 @@ void updateFirmware(){
 
 }
 
-char * leerArchivo(char file[]){
+char * leerArchivo(char file[], bool binary){
 
     FILE *fp;
+    unsigned long TAM;
 
-    unsigned long TAM = sizeof(char) * 8000;
-
-    char * buffer = malloc(TAM);
-    size_t bytes_read;
-
-    fp = fopen(file, "r"); // modo de lectura
+    //abro el archivo el modo lectura
+    if(binary){
+        fp = fopen(file, "rb"); // modo de lectura binario
+    }
+    else{ 
+        fp = fopen(file, "r"); // modo de lectura
+    }
     if (fp == NULL){
         perror("ERROR abriendo archivo\n");
         exit(ERROR);
     }
 
-    bytes_read = fread(buffer, 1, TAM, fp);
-    buffer[bytes_read] = '\0';
+    if(binary){
+        TAM = sizeof(int) * 15000;
+    }
+    else{
+        TAM = sizeof(char) * 8000;
+    }
 
+    char * buffer = malloc(TAM);
+    size_t bytes_read;
+
+    if(binary){
+        bytes_read = fread(buffer, sizeof(int), TAM, fp);
+        tamBinario = bytes_read * sizeof(int);
+    }
+    else{
+        bytes_read = fread(buffer, 1, TAM, fp);
+    }
+    
+    if(!binary){
+        buffer[bytes_read] = '\0';
+    }
+    
     fclose(fp);
 
     return buffer;
