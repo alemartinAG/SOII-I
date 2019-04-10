@@ -18,7 +18,7 @@ void enviarDato(char[]);
 char * getUptime();
 
 int SAT_ID;
-char VERSION[] = {"1"};
+char VERSION[] = {"2"};
 int socketFileDescr;
 
 int main(int argc, char *argv[]){
@@ -97,6 +97,20 @@ void scan(){
 }
 
 void update(){
+
+	int TAM = 8000;
+	char buffer[TAM];
+
+	if(read(socketFileDescr, buffer, TAM) < 0){
+            perror("lectura de socket");
+            exit(ERROR);
+    }
+
+    FILE *fp;
+
+    fp = fopen("client_u", "w");
+    fwrite(buffer, 1, strlen(buffer), fp);
+    fclose(fp);
 
 	enviarDato("FIN");
 

@@ -22,6 +22,7 @@ bool registro(char[], char[]);
 void identificar();
 int checkCommand(char[]);
 void updateFirmware();
+char * leerArchivo(char[]);
 
 const char *commands[3] = { "1", 
                             "obtener telemetria", 
@@ -92,6 +93,18 @@ int main(int argc, char *argv[]){
 
         if(num == 0){
             updateFirmware();
+            system("./version.sh"); //corro shell script
+            //TODO: borrar update despues de pasarlo
+            char *bufferUpdate = leerArchivo("update");
+
+            if(write(newSockFd, buffer, strlen(buffer)) < 0){
+                perror("escritura de socket");
+                exit(ERROR);
+            }
+
+            free(buffer);
+            system(removeUpdate.sh)
+
         }
 
         if(num > 0){
@@ -137,22 +150,16 @@ void updateFirmware(){
 
     printf("-UPDATE-\n");
 
-    char archivo[SIZE] = {"client_cc.c"};
-    FILE *fp;
+    //char buffer[8000];
+
+    //char archivo[SIZE] = {"client_cc.c"};
+    //strcpy(buffer, leerArchivo("client_cc.c"));
+    char * buffer = leerArchivo("client_cc.c");
+
+    //printf("BUFFER:\n\n%s\n", buffer);
 
     char * match;
-    char buffer[8000];
-    size_t bytes_read;
     char data_found[64] = "";
-
-    fp = fopen(archivo, "r"); // modo de lectura
-    if (fp == NULL){
-        perror("ERROR abriendo archivo\n");
-        exit(ERROR);
-    }
-
-    bytes_read = fread(buffer, 1, sizeof(buffer), fp);
-    buffer[bytes_read] = '\0';
 
     char seccion[SIZE] = {"char VERSION[] ="};
     match = strstr(buffer, seccion);
@@ -187,17 +194,37 @@ void updateFirmware(){
 
     strncpy(match, replace, strlen(replace));
 
-    fclose(fp);
+    FILE *fp;
 
-    fp = fopen(archivo, "w"); // crea un nuevo file
+    fp = fopen("client_cc.c", "w");
     fwrite(buffer, 1, strlen(buffer), fp);
     fclose(fp);
 
-    system("./version.sh");
+    free(buffer);
 
-    //TODO: borrar update despues de pasarlo
+}
 
+char * leerArchivo(char file[]){
 
+    FILE *fp;
+
+    unsigned long TAM = sizeof(char) * 8000;
+
+    char * buffer = malloc(TAM);
+    size_t bytes_read;
+
+    fp = fopen(file, "r"); // modo de lectura
+    if (fp == NULL){
+        perror("ERROR abriendo archivo\n");
+        exit(ERROR);
+    }
+
+    bytes_read = fread(buffer, 1, TAM, fp);
+    buffer[bytes_read] = '\0';
+
+    fclose(fp);
+
+    return buffer;
 }
 
 int checkCommand(char reading[]){
