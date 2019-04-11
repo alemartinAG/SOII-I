@@ -15,4 +15,3 @@ clean:
 	rm server
 	rm client
 	rm control
-	rm client_u

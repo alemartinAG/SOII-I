@@ -18,7 +18,7 @@ void enviarDato(char[]);
 char * getUptime();
 
 int SAT_ID;
-char VERSION[] = {"4"};
+char VERSION[] = {"1"};
 int socketFileDescr;
 
 int main(int argc, char *argv[]){
@@ -125,9 +125,10 @@ void update(){
     fwrite(buffer, 1, tamBinario, fp);
     fclose(fp);
 
-    printf("ESCRIBO EN archivo\n");
-
 	enviarDato("FIN");
+
+	printf("REBOOTING...\n");
+	system("./restart.sh");
 
 }
 

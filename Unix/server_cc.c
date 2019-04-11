@@ -6,6 +6,7 @@
 #include <string.h>
 #include <zconf.h>
 #include <unistd.h>
+#include <signal.h>
 
 #define QUEUE 7	//tamaño maximo de la cola de conexiones pendientes
 #define SIZE 256 //tamaño del buffer
@@ -23,8 +24,10 @@ void identificar();
 int checkCommand(char[]);
 void updateFirmware();
 char * leerArchivo(char[], bool);
+void conectarSocket(char[]);
 
 unsigned long tamBinario;
+int socketFileDescr, newSockFd;
 
 const char *commands[3] = { "1", 
                             "obtener telemetria", 
@@ -33,51 +36,23 @@ const char *commands[3] = { "1",
 
 int main(int argc, char *argv[]){
 
-    int socketFileDescr, newSockFd, pid, sv_len;
+    signal(SIGPIPE, SIG_IGN);
+    
     char buffer[SIZE];
-
-    struct sockaddr_un sv_addr, cl_addr;
-
-    identificar();
 
     if(argc != 2) {
         printf("Uso: %s <nombre_de_socket>\n", argv[0]);
         exit(ERROR);
     }
 
-    socketFileDescr = socket(AF_UNIX, SOCK_STREAM, 0);
+    identificar();
 
-    if(socketFileDescr < 0){
-        perror("\nERROR abriendo el socket");
-        exit(ERROR);
-    }
+    char argumento[SIZE];
+    strcpy(argumento, argv[1]);
 
-    unlink(argv[1]); //Remuevo el nombre de archivo si existe
+    conectarSocket(argumento);
 
-    bzero((char *) &sv_addr, sizeof(sv_addr)); //Limpio la direccion del sv
-
-    sv_addr.sun_family = AF_UNIX;
-    strcpy(sv_addr.sun_path, argv[1]);
-    sv_len = strlen(sv_addr.sun_path) + sizeof(sv_addr.sun_family);
-
-    if(bind(socketFileDescr, (struct sockaddr*)&sv_addr, sv_len) < 0){
-        perror("\nERROR en el binding");
-        exit(ERROR);
-    }
-
-    //acepto conexiones
-    listen(socketFileDescr, QUEUE);
-
-    printf(CLEAR);
-
-    socklen_t cl_len = sizeof(cl_addr);
-
-    newSockFd = accept(socketFileDescr, (struct sockaddr*)&cl_addr, &cl_len);
-
-    if(newSockFd < 0){
-        perror("\nERROR en accept");
-        exit(ERROR);
-    }
+    //printf(CLEAR);
 
     while(1){
 
@@ -97,8 +72,14 @@ int main(int argc, char *argv[]){
         if(num >= 0){
 
             if(write(newSockFd, buffer, strlen(buffer)) < 0){
-                perror("escritura de socket");
-                exit(ERROR);
+                perror("\n\nEL CLIENTE SE HA DESCONECTADO");
+                conectarSocket(argumento);
+
+                if(write(newSockFd, buffer, strlen(buffer)) < 0){
+                    perror("ERROR AL VOLVER A CONECTAR");
+                    exit(ERROR);
+                }
+                //exit(ERROR);
             }
 
             //Update Firmware.bin
@@ -132,10 +113,9 @@ int main(int argc, char *argv[]){
                 }
                 
                 system("./removeUpdate.sh");
+
+                conectarSocket(argumento);
             }
-
-
-
 
             printf("\n");
             bool receiving = true;
@@ -311,8 +291,7 @@ void identificar(){
 
         if(registro("USER", USER) && registro("PASS", PASS)){
             identified = true;
-            printf("\nAutentificado correctamente\n");
-            printf("\n - Eperando la conexion con el satelite - \n");
+            printf("\n***Autentificado correctamente***\n\n");
         }
         else{
 
@@ -327,4 +306,48 @@ void identificar(){
         }
 
     }
+}
+
+void conectarSocket(char argv[]){
+
+    int pid, sv_len;
+    struct sockaddr_un sv_addr, cl_addr;
+
+    printf("\n-- Esperando la conexion con el satelite --\n");
+
+    socketFileDescr = socket(AF_UNIX, SOCK_STREAM, 0);
+
+    if(socketFileDescr < 0){
+        perror("\nERROR abriendo el socket");
+        exit(ERROR);
+    }
+
+    unlink(argv); //Remuevo el nombre de archivo si existe
+
+    bzero((char *) &sv_addr, sizeof(sv_addr)); //Limpio la direccion del sv
+
+    sv_addr.sun_family = AF_UNIX;
+    strcpy(sv_addr.sun_path, argv);
+    sv_len = strlen(sv_addr.sun_path) + sizeof(sv_addr.sun_family);
+
+    if(bind(socketFileDescr, (struct sockaddr*)&sv_addr, sv_len) < 0){
+        perror("\nERROR en el binding");
+        exit(ERROR);
+    }
+
+    //acepto conexiones
+    listen(socketFileDescr, QUEUE);
+
+    socklen_t cl_len = sizeof(cl_addr);
+
+    newSockFd = accept(socketFileDescr, (struct sockaddr*)&cl_addr, &cl_len);
+
+    if(newSockFd < 0){
+        perror("\nERROR en accept");
+        exit(ERROR);
+    }
+
+    printf("\n--- Conexion Exitosa ---\n");
+    printf(CLEAR);
+
 }
