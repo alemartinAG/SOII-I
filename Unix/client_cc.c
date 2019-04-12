@@ -105,6 +105,39 @@ int main(int argc, char *argv[]){
 
 void scan(){
 
+	int TAM = 1500;
+	FILE * fp;
+	int i = 0;
+	char buffer[TAM];
+	size_t bytes_read;
+
+	while(1){
+		
+		char filename[8] = {""};
+		sprintf(filename, "x%06d", i);
+		char filename2[20] = {"Image/"};
+		strcat(filename2, filename);
+		fp = fopen (filename2,"r");
+  		
+  		if (fp!=NULL)
+  		{
+  			memset(buffer, 0, TAM);
+		    bytes_read = fread(buffer, 1, TAM, fp);
+		    enviarDato(buffer);
+		    fclose (fp);
+
+
+  		}
+  		else{
+  			enviarDato("FIN");
+  			break;
+  		}
+
+  		i++;
+  		//printf("Enviados: %d\n", i);
+  		//usleep(1000);
+	}
+
 }
 
 void update(){
@@ -127,8 +160,6 @@ void update(){
     }
 
     tamBinario = atoi(buffSize);
-
-    printf("tamBinario: %lu\n", tamBinario);
 
     FILE *fp;
 
@@ -225,7 +256,7 @@ void telemetria(){
         perror("ERROR CERRANDO SOCKET UDP");
     }*/
 
-    enviarDato("FIN");
+    //enviarDato("FIN");
 	
 }
 
@@ -236,5 +267,5 @@ void enviarDato(char dato[]){
         exit(ERROR);
     }
 
-    usleep(1000);
+    usleep(800);
 }

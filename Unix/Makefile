@@ -15,3 +15,4 @@ clean:
 	rm server
 	rm client
 	rm control
+	rm ImgSat.jpg

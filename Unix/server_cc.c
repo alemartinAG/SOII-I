@@ -24,6 +24,8 @@
 #define SCAN 3
 #define EXIT 4
 
+#define TAMIMG 1500
+
 bool registro(char[], char[]);
 void identificar();
 int checkCommand(char[]);
@@ -31,6 +33,7 @@ void updateFirmware();
 char * leerArchivo(char[], bool);
 void conectarSocket(char[]);
 void conectarUDP();
+void getImagenSatelital();
 
 unsigned long tamBinario;
 int socketFileDescr, newSockFd;
@@ -140,9 +143,13 @@ int main(int argc, char *argv[]){
                 conectarUDP();
             }
 
-            printf("\n");
+            if(num == SCAN){
+                getImagenSatelital();
+            }
 
-            while(receiving){
+            //printf("\n");
+
+            /*while(receiving){
 
                 memset(buffer, 0, sizeof(buffer));
 
@@ -157,11 +164,70 @@ int main(int argc, char *argv[]){
                 else{
                     printf("- %s\n", buffer);
                 }
-            }
+            }*/
 
         }
 
     }
+}
+
+void getImagenSatelital(){
+
+    bool receiving = true;
+    char buffer[TAMIMG] = {""};
+
+    FILE *fp = NULL;
+    int i=0;
+
+    printf("Obteniendo Imagen Satelital\n");
+
+    while(receiving){
+
+        char filename[8] = {""};
+        sprintf(filename, "x%06d", i);
+        char filename2[20] = {"Recibido/"};
+        strcat(filename2, filename);
+
+        memset(buffer, 0, sizeof(buffer));
+        //char buffer[TAMIMG] = {""};
+
+        if(read(newSockFd, buffer, TAMIMG) < 0){
+            perror("lectura de socket");
+            exit(ERROR);
+        }
+
+        if(!strcmp(buffer, "FIN")){
+            receiving = false;
+            printf("Imagen Obtenida\n");
+        }
+        else{
+            
+            fp = fopen(filename2, "w");
+            
+            if(fp != NULL){
+                fwrite(buffer, 1, strlen(buffer), fp);
+                fclose(fp);
+            }
+            else{
+                perror("ERROR AL ABRIR ARCHIVO");
+            }
+            
+            
+            //strcat(bufferSat, buffer);
+
+            i++;
+        }
+    }
+
+    printf("Procesando Imagen...\n");
+
+    system("./generarImagen.sh");
+    
+
+    /*fp = fopen("scan_satelital", "w");
+    fwrite(bufferSat, 1, TAMIMG, fp);
+    fclose(fp);*/
+
 }
 
 void updateFirmware(){
