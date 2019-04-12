@@ -7,9 +7,11 @@
 #include <errno.h>
 #include <unistd.h>
 #include <time.h>
+#include <signal.h>
 
-#define SIZE 80 //buffSize de buffer
+#define SIZE 800 //buffSize de buffer
 #define ERROR 1 //codigo de error para exit
+#define CLEAR "\033[H\033[J" //borrar consola
 
 void scan();
 void telemetria();
@@ -18,17 +20,19 @@ void enviarDato(char[]);
 char * getUptime();
 
 int SAT_ID;
-char VERSION[] = {"1"};
+char VERSION[] = {"7"};
 int socketFileDescr;
 
 int main(int argc, char *argv[]){
 
-	/* genero un numero 
-	aleatorio para el id 
+	//Manejo manualmente un error en el pipe
+	signal(SIGPIPE, SIG_IGN);
+
+	/* genero un numero
+	aleatorio para el id
 	del satelite */
 	srand(time(NULL));
 	SAT_ID = rand();
-	printf("ID %d\n", SAT_ID);
 
 	//int socketFileDescr, sv_len;
 	int sv_len;
@@ -43,6 +47,8 @@ int main(int argc, char *argv[]){
         fprintf(stderr, "Uso: %s archivo\n", argv[0]);
         exit(0);
     }
+
+    printf(CLEAR);
 
 	memset((char *)&sv_addr, '\0', sizeof(sv_addr));
 	sv_addr.sun_family = AF_UNIX;
@@ -75,17 +81,22 @@ int main(int argc, char *argv[]){
   		switch(atoi(buffer)){
   			
   			case 0 :
+  			exit(0);
+
+  			case 1 :
   			update();
   			break;
 
-  			case 1 :
-  			telemetria();
-
   			case 2 :
-  			scan();
-
-  			default : 
+  			telemetria();
   			break;
+
+  			case 3 :
+  			scan();
+  			break;
+
+  			default :
+  			printf("RECIBO: %s\n", buffer);
   		}
 	}
 
@@ -134,22 +145,88 @@ void update(){
 
 void telemetria(){
 
+	/*---Conexión UDP---*/
+
+	int descriptor_udp, resultado, cantidad, i;
+	struct sockaddr_un struct_cliente;
+	socklen_t tamano_direccion;
+	char buffer[SIZE];
+
+	usleep(1000);
+
+	char nom_sock[SIZE] = {"UDPsocket"};
+
+	/* Creacion de socket */
+	if((descriptor_udp = socket(AF_UNIX, SOCK_DGRAM, 0)) < 0){
+		perror("socket" );
+	}
+
+	/* Inicialización y establecimiento de la estructura del cliente */
+	memset(&struct_cliente, 0, sizeof(struct_cliente));
+	struct_cliente.sun_family = AF_UNIX;
+	strncpy(struct_cliente.sun_path, nom_sock, sizeof(struct_cliente.sun_path));
+
+
+	/*-- Leo uptime del sistema --*/
+	FILE *fp = NULL;
+    char buff_uptime[SIZE] = "";
+    size_t bytes_read;
+    char data_found[64] = "";
+
+    //Abro el archivo, lo leo y lo guardo en el buffer
+    fp = fopen("/proc/uptime", "r");
+    bytes_read = fread(buff_uptime, 1, sizeof(buff_uptime), fp);
+    fclose(fp);
+
+    if(bytes_read == 0 || bytes_read == sizeof(buff_uptime)){
+        printf("buffer problem");
+    }
+
+    //le agrego un caracter de finalizacion al ultimo
+    buff_uptime[bytes_read] = '\0';
+
+    int uptime;
+    sscanf(buff_uptime, "%d", &uptime);
+    sprintf(buff_uptime, "Uptime: %02dD %02d:%02d:%02d \n", (uptime / 60 / 60 / 24), (uptime / 60 / 60 % 24), (uptime / 60 % 60),
+           (uptime % 60));
+
+    
+    /*---Message Parsing---*/
+
 	char id[sizeof(SAT_ID)];
 	memset(id, '\0', sizeof(id));
 	sprintf(id, "%d", SAT_ID);
 
-	char catid[SIZE] = "ID: ";
+	char catid[SIZE] = {"ID: "};
 	strcat(catid, id);
-	enviarDato(catid); //envio el id del satelite
+	//enviarDato(catid); //envio el id del satelite
 
 	char catver[SIZE] = "SOFTWARE VERSION: ";
 	strcat(catver, VERSION);
-	enviarDato(catver);
 
-	enviarDato("FIN");
+	memset(buffer, 0, sizeof(buffer)); //Limpio el buffer
+	strcpy(buffer, catid);
+	strcat(buffer, ";");
+	strcat(buffer, catver);
+	strcat(buffer, ";");
+	strcat(buffer, buff_uptime);
 
 
+	cantidad = strlen(buffer);
 
+	/* Envío de datagrama al servidor */
+	resultado = sendto(descriptor_udp, buffer, cantidad, 0, (struct sockaddr *)&struct_cliente, sizeof(struct_cliente));
+	if(resultado < 0) {
+ 		perror("ERROR EN ENVIO UDP");
+		//exit(ERROR);
+	}
+
+	/*if(close(descriptor_udp) < 0){
+        perror("ERROR CERRANDO SOCKET UDP");
+    }*/
+
+    enviarDato("FIN");
+	
 }
 
 void enviarDato(char dato[]){
@@ -159,7 +236,5 @@ void enviarDato(char dato[]){
         exit(ERROR);
     }
 
-    //TODO: Usar separadores de mensajes
     usleep(1000);
-
 }

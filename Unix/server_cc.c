@@ -16,8 +16,13 @@
 #define MAGENTA "\x1b[35m"
 #define CYAN    "\x1b[36m"
 #define CRESET   "\x1b[0m"
-#define CLEAR "\033[H\033[J"
+#define CLEAR "\033[H\033[J" //borrar consola
 #define ERROR 1 //codigo de error
+
+#define UPDATE 1
+#define TELE 2
+#define SCAN 3
+#define EXIT 4
 
 bool registro(char[], char[]);
 void identificar();
@@ -25,17 +30,20 @@ int checkCommand(char[]);
 void updateFirmware();
 char * leerArchivo(char[], bool);
 void conectarSocket(char[]);
+void conectarUDP();
 
 unsigned long tamBinario;
 int socketFileDescr, newSockFd;
 
-const char *commands[3] = { "1", 
+const char *commands[4] = { "update firmware.bin", 
                             "obtener telemetria", 
-                            "start scanning"
+                            "start scanning",
+                            "exit"
                         };
 
 int main(int argc, char *argv[]){
 
+    //Manejo manualmente un error en el pipe
     signal(SIGPIPE, SIG_IGN);
     
     char buffer[SIZE];
@@ -56,6 +64,7 @@ int main(int argc, char *argv[]){
 
     while(1){
 
+        bool receiving = true;
         memset(buffer, 0, sizeof(buffer)); //Limpio el buffer
 
         printf(MAGENTA"%s"CYAN"@EstacionTerrena:"CRESET"~$ ", USER);
@@ -71,6 +80,14 @@ int main(int argc, char *argv[]){
         //Si el comando existe lo envio
         if(num >= 0){
 
+            if(num == EXIT){
+                if(close(socketFileDescr) < 0){
+                    perror("ERROR CERRANDO SOCKET");
+                }
+
+                exit(0);
+            }
+
             if(write(newSockFd, buffer, strlen(buffer)) < 0){
                 perror("\n\nEL CLIENTE SE HA DESCONECTADO");
                 conectarSocket(argumento);
@@ -83,7 +100,7 @@ int main(int argc, char *argv[]){
             }
 
             //Update Firmware.bin
-            if(num == 0){
+            if(num == UPDATE){
                 updateFirmware();
                 system("./version.sh"); //corro shell script
                 //TODO: borrar update despues de pasarlo
@@ -115,10 +132,15 @@ int main(int argc, char *argv[]){
                 system("./removeUpdate.sh");
 
                 conectarSocket(argumento);
+                receiving = false;
+
+            }
+
+            if(num == TELE){
+                conectarUDP();
             }
 
             printf("\n");
-            bool receiving = true;
 
             while(receiving){
 
@@ -250,8 +272,8 @@ int checkCommand(char reading[]){
 
     size_t cant = sizeof(commands)/sizeof(commands[0]);
 
-    for(int i=0; i<cant; i++){
-        if(!strcmp(reading, commands[i])){
+    for(int i=1; i<=cant; i++){
+        if(!strcmp(reading, commands[i-1])){
             return i;
         }
     }
@@ -348,6 +370,68 @@ void conectarSocket(char argv[]){
     }
 
     printf("\n--- Conexion Exitosa ---\n");
+
+    sleep(1);
     printf(CLEAR);
+
+}
+
+void conectarUDP(){
+
+    int socket_udp, resultado;
+    struct sockaddr_un struct_servidor;
+    socklen_t tamano_direccion;
+    char buffer[SIZE];
+
+    memset(buffer, '\0', SIZE);
+
+    char nom_sock[SIZE] = {"UDPsocket"};
+
+    /* Creacion de socket */
+    if((socket_udp = socket(AF_UNIX, SOCK_DGRAM, 0)) < 0){
+        perror("socket");
+        //exit(ERROR);
+    }
+
+    /* Remover el nombre de archivo si existe */
+    unlink(nom_sock);
+
+    /* Inicialización y establecimiento de la estructura del servidor */
+    memset(&struct_servidor, 0, sizeof(struct_servidor));
+    struct_servidor.sun_family = AF_UNIX;
+    strncpy(struct_servidor.sun_path, nom_sock, sizeof(struct_servidor.sun_path));
+
+    /* Ligadura del socket de servidor a una dirección */
+    if((bind(socket_udp, (struct sockaddr *)&struct_servidor, SUN_LEN(&struct_servidor))) < 0 ) {
+        perror("bind");
+        //exit(ERROR);
+    }
+
+    tamano_direccion = sizeof( struct_servidor );
+    /* Mantenimiento de un lazo infinito, aceptando conexiones */
+    resultado = recvfrom (socket_udp, (void *)buffer, SIZE, 0, (struct sockaddr *) &struct_servidor, &tamano_direccion);
+    if(resultado < 0) {
+        perror("recepción");
+        //exit(ERROR);
+    }
+    else{
+
+        char *token;
+        token = strtok(buffer, ";");
+
+        /* walk through other tokens */
+        while(token != NULL) {
+            printf("- %s\n", token);
+            token = strtok(NULL, ";");
+        }
+
+    }
+
+
+
+    if(close(socket_udp) < 0){
+        //perror("ERROR CERRANDO SOCKET UDP");
+    }
+    unlink(nom_sock);
 
 }
