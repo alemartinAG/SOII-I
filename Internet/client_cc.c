@@ -150,7 +150,6 @@ void scan(){
 		    //Espero confirmacion del servidor
 			if(read(socketFileDescr, buffer, TAM) < 0){
             	perror("lectura de socket");
-            	//exit(ERROR);
             	return;
         	}
   		}

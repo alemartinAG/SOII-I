@@ -90,7 +90,7 @@ int main(int argc, char *argv[]){
         int num = checkCommand(buffer);
 
         memset(buffer, 0, sizeof(buffer)); //Limpio el buffer
-        sprintf(buffer, "%d", num); //paso el numero de comando a char
+        sprintf(buffer, "%d", num); //parseo el numero de comando
 
         //Si el comando existe lo envio
         if(num >= 0){
@@ -103,7 +103,6 @@ int main(int argc, char *argv[]){
                     perror("ERROR AL VOLVER A CONECTAR");
                     exit(ERROR);
                 }
-                //exit(ERROR);
             }
 
             //exit: termino la ejecucion del programa
@@ -168,6 +167,9 @@ int main(int argc, char *argv[]){
 
 void getImagenSatelital(){
 
+    /* Obtiene todas las partes de la imagen satelital
+        en base 64, las concatena y recupera la imagen */
+
     bool receiving = true;
     char buffer[TAMIMG] = {""};
 
@@ -189,7 +191,6 @@ void getImagenSatelital(){
         strcat(filename2, filename);
 
         memset(buffer, 0, sizeof(buffer));
-        //char buffer[TAMIMG] = {""};
 
         if(read(newSockFd, buffer, TAMIMG) < 0){
             perror("lectura de socket");
@@ -229,7 +230,7 @@ void updateFirmware(){
 
     int versionActual;
 
-    printf("--UPDATE--\n");
+    printf("--SENDING UPDATE--\n");
 
     char * buffer = leerArchivo("client_cc.c", false);
 
@@ -396,6 +397,8 @@ void identificar(){
 
 void conectarSocket(char argv[]){
 
+    /* Gestiona creación y conexión del socket tcp */
+
     int pid, sv_len, puerto, cl_len;
     struct sockaddr_in sv_addr, cl_addr;
 
@@ -410,8 +413,6 @@ void conectarSocket(char argv[]){
         exit(ERROR);
     }
 
-    //unlink(argv); //Remuevo el nombre de archivo si existe
-
     bzero((char *) &sv_addr, sizeof(sv_addr)); //Limpio la direccion del sv
 
     puerto = atoi(argv);
@@ -419,9 +420,6 @@ void conectarSocket(char argv[]){
     sv_addr.sin_family = AF_INET;
     sv_addr.sin_addr.s_addr = INADDR_ANY;
     sv_addr.sin_port = htons(puerto);
-    
-    //strcpy(sv_addr.sun_path, argv);
-    //sv_len = strlen(sv_addr.sun_path) + sizeof(sv_addr.sun_family);
 
     if(bind(socketFileDescr, (struct sockaddr*)&sv_addr, sizeof(sv_addr)) < 0){
         perror("\nERROR en el binding");
@@ -478,7 +476,6 @@ void getTelemetria(){
     /* Ligadura del socket de servidor a una dirección */
     if((bind(socket_udp, (struct sockaddr *)&struct_servidor, sizeof(struct_servidor))) < 0 ) {
         perror("bind");
-        //exit(ERROR);
     }
 
     /*Recepción y procesamiento de mensaje*/
@@ -489,7 +486,6 @@ void getTelemetria(){
     if(resultado < 0) {
         perror("recepción");
         return;
-        //exit(ERROR);
     }
     else{
 

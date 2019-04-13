@@ -1,5 +1,3 @@
-/* Cliente en el dominio Unix - orientado a corrientes */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -20,7 +18,7 @@ void enviarDato(char[]);
 char * getUptime();
 
 int SAT_ID;
-char VERSION[] = {"7"};
+char VERSION[] = {"3"};
 int socketFileDescr;
 
 int main(int argc, char *argv[]){
@@ -28,27 +26,24 @@ int main(int argc, char *argv[]){
 	//Manejo manualmente un error en el pipe
 	signal(SIGPIPE, SIG_IGN);
 
+
+	/* Chequeo los argumentos */
+	if(argc < 2){
+        fprintf(stderr, "Uso: %s archivo\n", argv[0]);
+        exit(0);
+    }
+
 	/* genero un numero
 	aleatorio para el id
 	del satelite */
 	srand(time(NULL));
 	SAT_ID = rand();
 
-	//int socketFileDescr, sv_len;
+
+	/* Conexion de Socket UNIX TCP */
+
 	int sv_len;
-
 	struct sockaddr_un sv_addr;
-
-	char buffer[SIZE];
-
-	int terminar = 0;
-
-    if(argc < 2){
-        fprintf(stderr, "Uso: %s archivo\n", argv[0]);
-        exit(0);
-    }
-
-    printf(CLEAR);
 
 	memset((char *)&sv_addr, '\0', sizeof(sv_addr));
 	sv_addr.sun_family = AF_UNIX;
@@ -60,14 +55,19 @@ int main(int argc, char *argv[]){
 		exit(ERROR);
 	}
 
-	//Intento conectar al socket constantemente
+	//Intento conectar al socket hasta conseguirlo
 	while(1){
 		if(connect(socketFileDescr, (struct sockaddr *)&sv_addr, sv_len) >= 0){
+    		printf(CLEAR);
 			printf("\n-- Conectado --\n\n");
 			break;
 		}
 	}
+
+
+	/* Recibo comandos */
  	
+	char buffer[SIZE];
 
 	while(1){
 
@@ -95,6 +95,9 @@ int main(int argc, char *argv[]){
   			scan();
   			break;
 
+  			case 4 :
+  			exit(0);
+
   			default :
   			printf("RECIBO: %s\n", buffer);
   		}
@@ -105,6 +108,10 @@ int main(int argc, char *argv[]){
 
 void scan(){
 
+	/* Envia todos los archivos en los que
+	fue dividida la imagen luego de ser
+	convertida a base 64 */
+
 	int TAM = 1500;
 	FILE * fp;
 	int i = 0;
@@ -113,6 +120,7 @@ void scan(){
 
 	while(1){
 		
+		//el nombre de los archivos incrementa numericamente
 		char filename[8] = {""};
 		sprintf(filename, "x%06d", i);
 		char filename2[20] = {"Image/"};
@@ -127,20 +135,27 @@ void scan(){
 		    fclose (fp);
 
 
+		    //Espero confirmacion del servidor
+			if(read(socketFileDescr, buffer, TAM) < 0){
+            	perror("lectura de socket");
+            	return;
+        	}
   		}
   		else{
+  			printf("FIN DE ENVIO\n");
   			enviarDato("FIN");
   			break;
   		}
 
   		i++;
-  		//printf("Enviados: %d\n", i);
-  		//usleep(1000);
 	}
 
 }
 
 void update(){
+
+	/* Recibe el archivo binario de la actualizacion,
+	reemplaza el propio, y se reinicia */
 
 	printf("-UPDATE-\n");
 
@@ -149,11 +164,13 @@ void update(){
 	char buffSize[sizeof(unsigned long)];
 	unsigned long tamBinario;
 
+	//Recibe el archivo
 	if(read(socketFileDescr, buffer, TAM) < 0){
         perror("lectura de socket");
         exit(ERROR);
     }
 
+    //Recibe el tamaño total del archivo
     if(read(socketFileDescr, buffSize, sizeof(unsigned long)) < 0){
     	perror("lectura de socket");
         exit(ERROR);
@@ -163,6 +180,7 @@ void update(){
 
     FILE *fp;
 
+    //guardo el archivo
     fp = fopen("client_u", "wb");
     fwrite(buffer, 1, tamBinario, fp);
     fclose(fp);
@@ -204,7 +222,6 @@ void telemetria(){
     size_t bytes_read;
     char data_found[64] = "";
 
-    //Abro el archivo, lo leo y lo guardo en el buffer
     fp = fopen("/proc/uptime", "r");
     bytes_read = fread(buff_uptime, 1, sizeof(buff_uptime), fp);
     fclose(fp);
@@ -213,27 +230,38 @@ void telemetria(){
         printf("buffer problem");
     }
 
-    //le agrego un caracter de finalizacion al ultimo
     buff_uptime[bytes_read] = '\0';
 
     int uptime;
     sscanf(buff_uptime, "%d", &uptime);
-    sprintf(buff_uptime, "Uptime: %02dD %02d:%02d:%02d \n", (uptime / 60 / 60 / 24), (uptime / 60 / 60 % 24), (uptime / 60 % 60),
+    sprintf(buff_uptime, "Uptime: %02dD %02d:%02d:%02d", (uptime / 60 / 60 / 24), (uptime / 60 / 60 % 24), (uptime / 60 % 60),
            (uptime % 60));
 
-    
-    /*---Message Parsing---*/
 
-	char id[sizeof(SAT_ID)];
+    /*Obtengo memmory y cpu ussage*/
+
+    char buffCPU[SIZE] = {""};
+    system("./getstats.sh");
+    fp = fopen("cpumem.txt", "r");
+    bytes_read = fread(buffCPU, 1, sizeof(buffCPU), fp);
+    fclose(fp);
+    system("rm cpumem.txt");
+
+    /*Id del satelite*/
+
+    char id[sizeof(SAT_ID)];
 	memset(id, '\0', sizeof(id));
 	sprintf(id, "%d", SAT_ID);
-
 	char catid[SIZE] = {"ID: "};
 	strcat(catid, id);
-	//enviarDato(catid); //envio el id del satelite
+
+	/*Version de Firmware*/
 
 	char catver[SIZE] = "SOFTWARE VERSION: ";
 	strcat(catver, VERSION);
+
+    
+    /*---Message Parsing---*/
 
 	memset(buffer, 0, sizeof(buffer)); //Limpio el buffer
 	strcpy(buffer, catid);
@@ -241,7 +269,8 @@ void telemetria(){
 	strcat(buffer, catver);
 	strcat(buffer, ";");
 	strcat(buffer, buff_uptime);
-
+	strcat(buffer, ";");
+	strcat(buffer, buffCPU);
 
 	cantidad = strlen(buffer);
 
@@ -249,23 +278,17 @@ void telemetria(){
 	resultado = sendto(descriptor_udp, buffer, cantidad, 0, (struct sockaddr *)&struct_cliente, sizeof(struct_cliente));
 	if(resultado < 0) {
  		perror("ERROR EN ENVIO UDP");
-		//exit(ERROR);
+		return;
 	}
-
-	/*if(close(descriptor_udp) < 0){
-        perror("ERROR CERRANDO SOCKET UDP");
-    }*/
-
-    //enviarDato("FIN");
 	
 }
 
 void enviarDato(char dato[]){
 
+	/* Envia un mensaje a traves del socket */
+
 	if(write(socketFileDescr, dato, strlen(dato)) < 0){
         perror("escritura de socket");
         exit(ERROR);
     }
-
-    usleep(800);
 }
