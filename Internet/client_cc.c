@@ -23,7 +23,7 @@ void enviarDato(char[]);
 char * getUptime();
 
 int SAT_ID;
-char VERSION[] = {"3"};
+char VERSION[] = {"1"};
 int socketFileDescr;
 
 
@@ -57,7 +57,6 @@ int main(int argc, char *argv[]){
 
     puerto = atoi(argv[2]);
 
-    printf("PUERTO: %d\n", puerto);
 
     if((socketFileDescr = socket(AF_INET, SOCK_STREAM, 0)) < 0){
 		perror("creación de socket");
@@ -149,22 +148,14 @@ void scan(){
             	//exit(ERROR);
             	return;
         	}
-
-		    if(i%1000 == 0){
-		    	printf("Enviados: %d\n", i);
-		    }
-
   		}
   		else{
-  			//usleep(1500);
   			printf("FIN DE ENVIO\n");
   			enviarDato("FIN");
   			break;
   		}
 
   		i++;
-  		//printf("Enviados: %d\n", i);
-  		//usleep(1000);
 	}
 
 }
@@ -258,8 +249,16 @@ void telemetria(){
 
     int uptime;
     sscanf(buff_uptime, "%d", &uptime);
-    sprintf(buff_uptime, "Uptime: %02dD %02d:%02d:%02d \n", (uptime / 60 / 60 / 24), (uptime / 60 / 60 % 24), (uptime / 60 % 60),
+    sprintf(buff_uptime, "Uptime: %02dD %02d:%02d:%02d", (uptime / 60 / 60 / 24), (uptime / 60 / 60 % 24), (uptime / 60 % 60),
            (uptime % 60));
+
+    /*Obtengo memmory y cpu ussage*/
+    char buffCPU[SIZE] = {""};
+    system("./getstats.sh");
+    fp = fopen("cpumem.txt", "r");
+    bytes_read = fread(buffCPU, 1, sizeof(buffCPU), fp);
+    fclose(fp);
+    system("rm cpumem.txt");
 
     
     /*---Message Parsing---*/
@@ -270,7 +269,6 @@ void telemetria(){
 
 	char catid[SIZE] = {"ID: "};
 	strcat(catid, id);
-	//enviarDato(catid); //envio el id del satelite
 
 	char catver[SIZE] = "SOFTWARE VERSION: ";
 	strcat(catver, VERSION);
@@ -281,7 +279,8 @@ void telemetria(){
 	strcat(buffer, catver);
 	strcat(buffer, ";");
 	strcat(buffer, buff_uptime);
-
+	strcat(buffer, ";");
+	strcat(buffer, buffCPU);
 
 	cantidad = strlen(buffer);
 
@@ -289,14 +288,8 @@ void telemetria(){
 	resultado = sendto(descriptor_udp, buffer, cantidad, 0, (struct sockaddr *)&struct_cliente, sizeof(struct_cliente));
 	if(resultado < 0) {
  		perror("ERROR EN ENVIO UDP");
-		//exit(ERROR);
+ 		return;
 	}
-
-	/*if(close(descriptor_udp) < 0){
-        perror("ERROR CERRANDO SOCKET UDP");
-    }*/
-
-    //enviarDato("FIN");
 	
 }
 
@@ -306,6 +299,4 @@ void enviarDato(char dato[]){
         perror("escritura de socket");
         exit(ERROR);
     }
-
-    //usleep(1300);
 }

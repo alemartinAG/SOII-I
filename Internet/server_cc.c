@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <string.h>
+#include <time.h>
 
 #define QUEUE 1	//tamaño maximo de la cola de conexiones pendientes
 #define SIZE 256 //tamaño del buffer
@@ -34,7 +35,7 @@ int checkCommand(char[]);
 void updateFirmware();
 char * leerArchivo(char[], bool);
 void conectarSocket(char[]);
-void conectarUDP();
+void getTelemetria();
 void getImagenSatelital();
 
 unsigned long tamBinario;
@@ -143,31 +144,12 @@ int main(int argc, char *argv[]){
             }
 
             if(num == TELE){
-                conectarUDP();
+                getTelemetria();
             }
 
             if(num == SCAN){
                 getImagenSatelital();
             }
-
-            //printf("\n");
-
-            /*while(receiving){
-
-                memset(buffer, 0, sizeof(buffer));
-
-                if(read(newSockFd, buffer, SIZE) < 0){
-                    perror("lectura de socket");
-                    exit(ERROR);
-                }
-
-                if(!strcmp(buffer, "FIN")){
-                    receiving = false;
-                }
-                else{
-                    printf("- %s\n", buffer);
-                }
-            }*/
 
         }
 
@@ -179,10 +161,15 @@ void getImagenSatelital(){
     bool receiving = true;
     char buffer[TAMIMG] = {""};
 
+    //Reloj
+    clock_t start, end;
+    double cpu_time_used;
+
     FILE *fp = NULL;
     int i=0;
 
     printf("Obteniendo Imagen Satelital\n");
+    start = clock();
 
     while(receiving){
 
@@ -200,8 +187,10 @@ void getImagenSatelital(){
         }
 
         if(!strcmp(buffer, "FIN")){
+            end = clock();
+            cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
             receiving = false;
-            printf("Imagen Obtenida\n");
+            printf("Imagen Obtenida en %f segundos\n", cpu_time_used);
         }
         else{
             
@@ -215,9 +204,6 @@ void getImagenSatelital(){
             else{
                 perror("ERROR AL ABRIR ARCHIVO");
             }
-            
-            
-            //strcat(bufferSat, buffer);
 
             i++;
         }
@@ -226,11 +212,6 @@ void getImagenSatelital(){
     printf("Procesando Imagen...\n");
 
     system("./generarImagen.sh");
-    
-
-    /*fp = fopen("scan_satelital", "w");
-    fwrite(bufferSat, 1, TAMIMG, fp);
-    fclose(fp);*/
 
 }
 
@@ -434,8 +415,6 @@ void conectarSocket(char argv[]){
         exit(ERROR);
     }
 
-    printf( "Proceso: %d - socket disponible: %d\n", getpid(), ntohs(sv_addr.sin_port));
-
     //acepto conexiones
     listen(socketFileDescr, QUEUE);
 
@@ -455,7 +434,7 @@ void conectarSocket(char argv[]){
 
 }
 
-void conectarUDP(){
+void getTelemetria(){
 
     int socket_udp, resultado;
     struct sockaddr_in struct_servidor;
@@ -468,14 +447,11 @@ void conectarUDP(){
 
     char nom_sock[SIZE] = {"UDPsocket"};
 
-    /* Creacion de socket */
+    /* Creacion de socket UDP*/
     if((socket_udp = socket(AF_INET, SOCK_DGRAM, 0)) < 0){
         perror("socket");
         //exit(ERROR);
     }
-
-    /* Remover el nombre de archivo si existe */
-    //unlink(nom_sock);
 
     /* Inicialización y establecimiento de la estructura del servidor */
     memset(&struct_servidor, 0, sizeof(struct_servidor));
@@ -492,10 +468,14 @@ void conectarUDP(){
     }
 
     tamano_direccion = sizeof(struct sockaddr);
-    /* Mantenimiento de un lazo infinito, aceptando conexiones */
+
+
+    /*Recepción y procesamiento de mensaje*/
+
     resultado = recvfrom (socket_udp, buffer, SIZE, 0, (struct sockaddr *) &struct_servidor, &tamano_direccion);
     if(resultado < 0) {
         perror("recepción");
+        return;
         //exit(ERROR);
     }
     else{
@@ -510,8 +490,6 @@ void conectarUDP(){
         }
 
     }
-
-
 
     if(close(socket_udp) < 0){
         //perror("ERROR CERRANDO SOCKET UDP");
