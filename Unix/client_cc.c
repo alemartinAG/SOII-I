@@ -113,12 +113,12 @@ void scan(){
 	convertida a base 64 */
 
 	int TAM = 1500;
-	FILE * fp;
 	int i = 0;
 	char buffer[TAM];
-	size_t bytes_read;
 
 	while(1){
+		
+		FILE * fp;
 		
 		//el nombre de los archivos incrementa numericamente
 		char filename[8] = {""};
@@ -130,7 +130,7 @@ void scan(){
   		if (fp!=NULL)
   		{
   			memset(buffer, 0, TAM);
-		    bytes_read = fread(buffer, 1, TAM, fp);
+			fread(buffer, 1, TAM, fp);
 		    enviarDato(buffer);
 		    fclose (fp);
 
@@ -196,9 +196,8 @@ void telemetria(){
 
 	/*---Conexión UDP---*/
 
-	int descriptor_udp, resultado, cantidad, i;
+	int descriptor_udp, resultado, cantidad;
 	struct sockaddr_un struct_cliente;
-	socklen_t tamano_direccion;
 	char buffer[SIZE];
 
 	usleep(1000);
@@ -220,10 +219,9 @@ void telemetria(){
 	FILE *fp = NULL;
     char buff_uptime[SIZE] = "";
     size_t bytes_read;
-    char data_found[64] = "";
 
     fp = fopen("/proc/uptime", "r");
-    bytes_read = fread(buff_uptime, 1, sizeof(buff_uptime), fp);
+    bytes_read = fread(buff_uptime, 1, strlen(buff_uptime), fp);
     fclose(fp);
 
     if(bytes_read == 0 || bytes_read == sizeof(buff_uptime)){
@@ -243,7 +241,7 @@ void telemetria(){
     char buffCPU[SIZE] = {""};
     system("./getstats.sh");
     fp = fopen("cpumem.txt", "r");
-    bytes_read = fread(buffCPU, 1, sizeof(buffCPU), fp);
+    fread(buffCPU, 1, sizeof(buffCPU), fp);
     fclose(fp);
     system("rm cpumem.txt");
 

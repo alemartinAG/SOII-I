@@ -1,0 +1,2 @@
+[server_cc.c:90] -> [server_cc.c:91]: (performance) Buffer 'buffer' is being written before its old content has been used.
+[server_cc.c:240]: (warning) scanf without field width limits can crash with huge input data.

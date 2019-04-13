@@ -396,7 +396,7 @@ void conectarSocket(char argv[]){
 
     /* Gestiona creación y conexión del socket tcp */
 
-    int pid, sv_len;
+    int sv_len;
     struct sockaddr_un sv_addr, cl_addr;
 
     printf("\n-- Esperando la conexion con el satelite --\n");

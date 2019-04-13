@@ -11,6 +11,9 @@ runserver:
 runclient:
 	./client control
 
+cppcheck:
+	cppcheck --enable=all  --suppress=missingIncludeSystem client_cc.c server_cc.c 2>err.txt
+
 clean:
 	rm server
 	rm client
