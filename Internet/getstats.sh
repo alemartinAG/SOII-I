@@ -1,3 +1,3 @@
 #!/bin/bash
 
-ps -p $(pidof server) --format %cpu --format %mem > cpumem.txt
+ps -p $(pidof client) --format %cpu --format %mem > cpumem.txt
