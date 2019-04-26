@@ -240,11 +240,11 @@ void telemetria(){
 	/*-- Leo uptime del sistema --*/
 
 	FILE *fp = NULL;
-    char buff_uptime[SIZE] = "";
+    char buff_uptime[SIZE] = {""};
     size_t bytes_read;
 
     fp = fopen("/proc/uptime", "r");
-    bytes_read = fread(buff_uptime, 1, strlen(buff_uptime), fp);
+    bytes_read = fread(buff_uptime, 1, sizeof(buff_uptime), fp);
     fclose(fp);
 
     if(bytes_read == 0 || bytes_read == sizeof(buff_uptime)){

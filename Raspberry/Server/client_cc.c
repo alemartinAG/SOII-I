@@ -21,7 +21,7 @@ void enviarDato(char[]);
 char * getUptime();
 
 int SAT_ID;
-char VERSION[] = {"2"};
+char VERSION[] = {"4"};
 int socketFileDescr;
 
 int main(int argc, char *argv[]){

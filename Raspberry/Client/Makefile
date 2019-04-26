@@ -5,7 +5,7 @@ all:
 	$(CC) client_cc.c -o client
 
 runclient:
-	./client <IP_PC> 27415
+	./client 192.168.0.133 27415
 
 clean:
 	rm client

@@ -13,6 +13,7 @@
 #define SIZE 800 //buffSize de buffer
 #define ERROR 1 //codigo de error para exit
 #define CLEAR "\033[H\033[J" //borrar consola
+#define SATID "x01121sat"
 
 void scan();
 void telemetria();
@@ -20,7 +21,7 @@ void update();
 void enviarDato(char[]);
 char * getUptime();
 
-int SAT_ID;
+//int SAT_ID;
 char VERSION[] = {"2"};
 int socketFileDescr;
 
@@ -35,13 +36,6 @@ int main(int argc, char *argv[]){
         printf("Uso: %s <host> <puerto>\n", argv[0]);
         exit(0);
     }
-
-	/* genero un numero
-	aleatorio para el id
-	del satelite */
-	srand(time(NULL));
-	SAT_ID = rand();
-
 
 	/* Conexion de Socket de Internet TCP */
 
@@ -214,7 +208,7 @@ void telemetria(){
 	char buffer[SIZE];
 	struct hostent *server;
 
-	server = gethostbyname("localhost");
+	server = gethostbyname("192.168.0.133");
 	if ( server == NULL ) {
 		printf("ERROR, no existe el host\n");
 		return;
@@ -240,23 +234,23 @@ void telemetria(){
 	/*-- Leo uptime del sistema --*/
 
 	FILE *fp = NULL;
-    char buff_uptime[SIZE] = "";
+    char buff_uptime[SIZE] = {""};
     size_t bytes_read;
 
     fp = fopen("/proc/uptime", "r");
-    bytes_read = fread(buff_uptime, 1, strlen(buff_uptime), fp);
+    bytes_read = fread(buff_uptime, 1, sizeof(buff_uptime), fp);
     fclose(fp);
 
     if(bytes_read == 0 || bytes_read == sizeof(buff_uptime)){
         printf("buffer problem");
     }
 
-    buff_uptime[bytes_read] = '\0';
+	long uptime;
+	char *ptr;
+	uptime = strtol(buff_uptime, &ptr, 10);
 
-    int uptime;
-    sscanf(buff_uptime, "%d", &uptime);
-    sprintf(buff_uptime, "Uptime: %02dD %02d:%02d:%02d", (uptime / 60 / 60 / 24), (uptime / 60 / 60 % 24), (uptime / 60 % 60),
-           (uptime % 60));
+	memset(buff_uptime, '\0', SIZE-1);
+    sprintf(buff_uptime, "Uptime: %02dD %02d:%02d:%02d", (uptime / 60 / 60 / 24), (uptime / 60 / 60 % 24), (uptime / 60 % 60), (uptime % 60));
 
 
     /*Obtengo memmory y cpu ussage*/
@@ -268,14 +262,8 @@ void telemetria(){
     fclose(fp);
     system("rm cpumem.txt");
 
-
-    /*Id del satelite*/
-
-    char id[sizeof(SAT_ID)];
-	memset(id, '\0', sizeof(id));
-	sprintf(id, "%d", SAT_ID);
 	char catid[SIZE] = {"ID: "};
-	strcat(catid, id);
+	strcat(catid, SATID);
 
 	/*Version de Firmware*/
 
