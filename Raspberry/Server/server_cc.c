@@ -34,12 +34,13 @@
 #define EXIT 4
 
 #define TAMIMG 1500
+#define MTU 1448
 
 bool registro(char[], char[]);
 void identificar();
 int checkCommand(char[]);
 void updateFirmware();
-char * leerArchivo(char[], bool);
+char * leerArchivo(char[]);
 void conectarSocket(char[]);
 void getTelemetria();
 void getImagenSatelital();
@@ -118,35 +119,46 @@ int main(int argc, char *argv[]){
             if(num == UPDATE){
 
                 updateFirmware();
-                system("./version.sh"); //corro shell script
+                //system("./version.sh"); //corro shell script
+                //char *bufferUpdate = leerArchivo("update64");
+                char *bufferUpdate = leerArchivo("client_cc.c");
 
-                char *bufferUpdate = leerArchivo("update", true);
+                printf("STRLEN U64: %lu\n", strlen(bufferUpdate));
+                
+                int cantmens = (strlen(bufferUpdate)/MTU)+1;
+                
+                printf("CANTMES: %d\n", cantmens);
 
-                printf("strlen bufferUpdate: %lu\n", strlen(bufferUpdate));
-                printf("sizeof bufferUpdate: %lu\n", sizeof(bufferUpdate));
-                printf("sizeof * bufferUpdate: %lu\n", sizeof( * bufferUpdate));
+                int beg = 0;
+                
+                for(int i=0;i<cantmens;i++){
 
-                if(write(newSockFd, bufferUpdate, tamBinario) < 0){
+                    char substr[MTU] = {""};
+                    strncpy(substr, bufferUpdate+beg, MTU);
+
+                    if(write(newSockFd, substr, MTU) < 0){
+                        perror("escritura de socket");
+                        //exit(ERROR);
+                    }
+
+                    beg = beg+MTU;
+
+                    memset(buffer, 0, sizeof(buffer)); //Limpio el buffer
+
+                    if(read(newSockFd, buffer, sizeof(buffer)-1) < 0){
+                        perror("lectura");
+                    }
+
+                }
+
+                if(write(newSockFd, "FIN", strlen("FIN")) < 0){
                     perror("escritura de socket");
-                    exit(ERROR);
                 }
 
                 free(bufferUpdate);
-
-                usleep(1000);
-
-                char buffSize[sizeof(unsigned long)];
-                sprintf(buffSize, "%lu", tamBinario);
-
-                if(write(newSockFd, buffSize, sizeof(unsigned long)) < 0){
-                    perror("escritura de socket");
-                    exit(ERROR);
-                }
-
-                usleep(1000);
                 close(socketFileDescr);
-                
-                system("./removeUpdate.sh");
+
+                usleep(5000);
 
                 conectarSocket(argumento);
 
@@ -232,7 +244,7 @@ void updateFirmware(){
 
     printf("--SENDING UPDATE--\n");
 
-    char * buffer = leerArchivo("client_cc.c", false);
+    char * buffer = leerArchivo("client_cc.c");
 
     char * match;
     char data_found[64] = "";
@@ -284,48 +296,32 @@ void updateFirmware(){
 
 }
 
-char * leerArchivo(char file[], bool binary){
+char * leerArchivo(char file[]){
 
     /* Lee un archivo de forma completa */
 
     FILE *fp;
     unsigned long TAM;
 
-    //abro el archivo el modo lectura
-    if(binary){
-        fp = fopen(file, "rb"); // modo de lectura binario
-    }
-    else{ 
-        fp = fopen(file, "r"); // modo de lectura
-    }
+
+    fp = fopen(file, "r"); // modo de lectura
+
     if (fp == NULL){
         perror("ERROR abriendo archivo\n");
         exit(ERROR);
     }
 
-    if(binary){
-        TAM = sizeof(int) * 15000;
-    }
-    else{
-        TAM = sizeof(char) * 8000;
-    }
+    TAM = sizeof(char) * 50000; //max de 50Kb
 
     char * buffer = malloc(TAM);
     size_t bytes_read;
 
-    if(binary){
-        bytes_read = fread(buffer, sizeof(int), TAM, fp);
-        tamBinario = bytes_read * sizeof(int);
-    }
-    else{
-        bytes_read = fread(buffer, 1, TAM, fp);
-    }
-    
-    if(!binary){
-        buffer[bytes_read] = '\0';
-    }
+
+    bytes_read = fread(buffer, 1, TAM-1, fp);
     
     fclose(fp);
+
+    //buffer[bytes_read] = "\0";
 
     return buffer;
 }

@@ -166,33 +166,43 @@ void update(){
 
 	printf("-UPDATE-\n");
 
-	int TAM = 15000;
+	int TAM = 1500;
 	char buffer[TAM];
-	char buffSize[sizeof(unsigned long)];
-	unsigned long tamBinario;
 
-	//Recibe el archivo
-	if(read(socketFileDescr, buffer, TAM) < 0){
-        perror("lectura de socket");
-        exit(ERROR);
-    }
+	FILE *fp;
 
-    //Recibe el tamaño total del archivo
-    if(read(socketFileDescr, buffSize, sizeof(unsigned long)) < 0){
-    	perror("lectura de socket");
-        exit(ERROR);
-    }
+	int index = 1;
 
-    tamBinario = atoi(buffSize);
+	while(1){
 
-    FILE *fp;
+		memset(buffer, '\0', TAM);
 
-    //guardo el archivo
-    fp = fopen("client_u", "wb");
-    fwrite(buffer, 1, tamBinario, fp);
-    fclose(fp);
+		//Recibe el archivo
+		if(read(socketFileDescr, buffer, TAM) < 0){
+        	perror("lectura de socket");
+        	exit(ERROR);
+    	}
 
-	enviarDato("FIN");
+    	printf("STRLEN: %lu\n", strlen(buffer));
+
+    	if(!strcmp(buffer, "FIN")){
+    		printf("SALGO DL WHILE\n");
+    		break;
+    	}
+
+    	char filename[100] = {""};
+    	sprintf(filename, "UPDATE/cl%03d", index);
+
+    	//guardo el archivo
+    	fp = fopen(filename, "w");
+    	fwrite(buffer, 1, strlen(buffer), fp);
+    	fclose(fp);
+
+    	enviarDato("OK");
+
+    	index++;
+
+	}
 
 	printf("REBOOTING...\n");
 	system("./restart.sh");
