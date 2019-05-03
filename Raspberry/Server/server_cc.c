@@ -11,8 +11,9 @@
 #include <string.h>
 #include <time.h>
 
+
 #define QUEUE 1	//tamaño maximo de la cola de conexiones pendientes
-#define SIZE 256 //tamaño del buffer
+#define PORTN 27815
 
 #define PASS "123" //contraseña
 #define USER "admin" //nombre de usuario
@@ -28,12 +29,14 @@
 
 #define ERROR 1 //codigo de error
 
+/* numero de comando */
 #define UPDATE 1
 #define TELE 2
 #define SCAN 3
 #define EXIT 4
 
 #define TAMIMG 1500
+#define SIZE 256 //tamaño del buffer
 #define MTU 1448
 
 bool registro(char[], char[]);
@@ -45,7 +48,7 @@ void conectarSocket(char[]);
 void getTelemetria();
 void getImagenSatelital();
 
-unsigned long tamBinario;
+
 int socketFileDescr, newSockFd;
 
 const char *commands[4] = { "update firmware.bin", 
@@ -76,6 +79,8 @@ int main(int argc, char *argv[]){
 
 
     char buffer[SIZE];
+
+    /* Loop principal */
 
     while(1){
 
@@ -122,12 +127,7 @@ int main(int argc, char *argv[]){
                 //system("./version.sh"); //corro shell script
                 //char *bufferUpdate = leerArchivo("update64");
                 char *bufferUpdate = leerArchivo("client_cc.c");
-
-                printf("STRLEN U64: %lu\n", strlen(bufferUpdate));
-                
                 int cantmens = (strlen(bufferUpdate)/MTU)+1;
-                
-                printf("CANTMES: %d\n", cantmens);
 
                 int beg = 0;
                 
@@ -216,6 +216,10 @@ void getImagenSatelital(){
             printf("Imagen Obtenida en %f segundos\n", cpu_time_used);
         }
         else{
+
+            if(i%1000 == 0){
+                printf("%d archivos recibidos\n", i);
+            }
             
             fp = fopen(filename2, "w");
             
@@ -276,10 +280,13 @@ void updateFirmware(){
     //una vez encontrado, aumento n° de version
     versionActual++;
 
-    char version[SIZE];
-    sprintf(version, "%d", versionActual);
+    char * version;
+    version = (char *) calloc(sizeof(char), 20);
+    snprintf(version, 19,"%d", versionActual);
     strcat(replace, version);
     strcat(replace, "\"};");
+
+    free(version);
 
     //reemplazo linea
     strncpy(match, replace, strlen(replace));
@@ -452,7 +459,7 @@ void getTelemetria(){
     char buffer[SIZE] = {""};
 
     //numero de puerto que utiliza
-    int puerto = 27815;
+    int puerto = PORTN;
 
     memset(buffer, '\0', SIZE);
 

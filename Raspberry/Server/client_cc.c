@@ -22,7 +22,7 @@ void enviarDato(char[]);
 char * getUptime();
 
 //int SAT_ID;
-char VERSION[] = {"1"};
+char VERSION[] = {"2"};
 int socketFileDescr;
 
 int main(int argc, char *argv[]){
@@ -119,27 +119,32 @@ void scan(){
 		fue dividida la imagen luego de ser
 		convertida a base 64 */
 
-	int TAM = 1500;
+	int TAM = 1448;
 	int i = 0;
-	char buffer[TAM];
+	char * buffer;
+	buffer = (char *) malloc(TAM);
+	
+	FILE *fp;	
 
 	while(1){
-
-		FILE * fp;
 		
 		//el nombre de los archivos incrementa numericamente
-		char filename[8] = {""};
-		sprintf(filename, "x%06d", i);
-		char filename2[20] = {"Image/"};
-		strcat(filename2, filename);
-		fp = fopen (filename2,"r");
-  		
+		char *filename;
+		filename = (char *) calloc(sizeof(char),20);
+		strcpy(filename, "A");
+		snprintf(filename, 19, "Image/x%06d", i);
+
+		fp = fopen (filename, "r");
+		free(filename);  		
+
   		if (fp!=NULL)
   		{
   			memset(buffer, 0, TAM);
 		    fread(buffer, 1, TAM, fp);
+			
+			fclose(fp);
+		
 		    enviarDato(buffer);
-		    fclose (fp);
 
 		    //Espero confirmacion del servidor
 			if(read(socketFileDescr, buffer, TAM) < 0){
@@ -147,7 +152,7 @@ void scan(){
             	return;
         	}
   		}
-  		//Si el archivo no se encuentra, termine
+  		//Si el archivo no se encuentra, termina
   		else{
   			printf("FIN DE ENVIO\n");
   			enviarDato("FIN");
@@ -156,6 +161,8 @@ void scan(){
 
   		i++;
 	}
+	
+	free(buffer);
 
 }
 
@@ -183,18 +190,18 @@ void update(){
         	exit(ERROR);
     	}
 
-    	printf("STRLEN: %lu\n", strlen(buffer));
-
     	if(!strcmp(buffer, "FIN")){
-    		printf("SALGO DL WHILE\n");
     		break;
     	}
 
-    	char filename[100] = {""};
-    	sprintf(filename, "UPDATE/cl%03d", index);
+    	char * filename;
+    	filename = (char *) calloc(sizeof(char), 100);
+    	snprintf(filename, 100,"UPDATE/cl%03d", index);
 
     	//guardo el archivo
     	fp = fopen(filename, "w");
+    	free(filename);
+
     	fwrite(buffer, 1, strlen(buffer), fp);
     	fclose(fp);
 
