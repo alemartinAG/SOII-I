@@ -22,7 +22,8 @@ void enviarDato(char[]);
 char * getUptime();
 
 //int SAT_ID;
-char VERSION[] = {"2"};
+char VERSION[] = {"3.3"};
+char serverIP[16];
 int socketFileDescr;
 
 int main(int argc, char *argv[]){
@@ -45,13 +46,16 @@ int main(int argc, char *argv[]){
 
 	//numero de puerto
     puerto = atoi(argv[2]);
+    //Ip del server
+    strcpy(serverIP, argv[1]);
 
     if((socketFileDescr = socket(AF_INET, SOCK_STREAM, 0)) < 0){
 		perror("creación de socket");
 		exit(ERROR);
 	}
 
-    server = gethostbyname(argv[1]);
+    //server = gethostbyname(argv[1]);
+    server = gethostbyname(serverIP);
 	if (server == NULL) {
 		perror("Error, no existe el host");
 		exit(ERROR);
@@ -232,7 +236,7 @@ void telemetria(){
 	char buffer[SIZE];
 	struct hostent *server;
 
-	server = gethostbyname("192.168.0.133");
+	server = gethostbyname(serverIP);
 	if ( server == NULL ) {
 		printf("ERROR, no existe el host\n");
 		return;

@@ -103,12 +103,8 @@ int main(int argc, char *argv[]){
 
             if(write(newSockFd, buffer, strlen(buffer)) < 0){
                 perror("\n\nEL CLIENTE SE HA DESCONECTADO");
+                close(socketFileDescr);
                 conectarSocket(argumento);
-
-                if(write(newSockFd, buffer, strlen(buffer)) < 0){
-                    perror("ERROR AL VOLVER A CONECTAR");
-                    exit(ERROR);
-                }
             }
 
             //exit: termino la ejecucion del programa
@@ -122,46 +118,9 @@ int main(int argc, char *argv[]){
 
             //Update Firmware.bin
             if(num == UPDATE){
-
                 updateFirmware();
-                //system("./version.sh"); //corro shell script
-                //char *bufferUpdate = leerArchivo("update64");
-                char *bufferUpdate = leerArchivo("client_cc.c");
-                int cantmens = (strlen(bufferUpdate)/MTU)+1;
-
-                int beg = 0;
-                
-                for(int i=0;i<cantmens;i++){
-
-                    char substr[MTU] = {""};
-                    strncpy(substr, bufferUpdate+beg, MTU);
-
-                    if(write(newSockFd, substr, MTU) < 0){
-                        perror("escritura de socket");
-                        //exit(ERROR);
-                    }
-
-                    beg = beg+MTU;
-
-                    memset(buffer, 0, sizeof(buffer)); //Limpio el buffer
-
-                    if(read(newSockFd, buffer, sizeof(buffer)-1) < 0){
-                        perror("lectura");
-                    }
-
-                }
-
-                if(write(newSockFd, "FIN", strlen("FIN")) < 0){
-                    perror("escritura de socket");
-                }
-
-                free(bufferUpdate);
-                close(socketFileDescr);
-
                 usleep(5000);
-
                 conectarSocket(argumento);
-
             }
 
             if(num == TELE){
@@ -254,62 +213,38 @@ void getImagenSatelital(){
 
 void updateFirmware(){
 
-    int versionActual;
-
-    printf("--SENDING UPDATE--\n");
-
-    char * buffer = leerArchivo("client_cc.c");
-
-    char * match;
-    char data_found[64] = "";
-
-    /* busco la version en el codigo fuente del cliente */
-
-    char seccion[SIZE] = {"char VERSION[] ="};
-    match = strstr(buffer, seccion);
-    sscanf(match, "%[^\n]", data_found);
+    char buffer[SIZE];
+    char *bufferUpdate = leerArchivo("client_cc.c");
     
-    char *token;
-    token = strtok(data_found, "\"");
+    int cantmens = (strlen(bufferUpdate)/MTU)+1;
+    printf("Cantmens = %d\n", cantmens);
 
-    //genero string para reemplazar la linea de la version
-    char replace[SIZE];
-    strcpy(replace, token);
-    strcat(replace, "\"");
+    int beg = 0;
+    
+    for(int i=0;i<cantmens;i++){
 
-    while(token != NULL) {
+        char substr[MTU] = {""};
+        strncpy(substr, bufferUpdate+beg, MTU);
 
-        if(strlen(token) <= 2){
-            versionActual = atoi(token);
-            break;
+        if(write(newSockFd, substr, MTU) < 0){
+            perror("escritura de socket");
+            //exit(ERROR);
         }
 
-        token = strtok(NULL, "\"");
+        beg = beg+MTU;
+
+        if(read(newSockFd, buffer, sizeof(buffer)-1) < 0){
+            perror("lectura");
+        }
+
     }
 
-    //una vez encontrado, aumento n° de version
-    versionActual++;
+    if(write(newSockFd, "FIN", strlen("FIN")) < 0){
+        perror("escritura de socket");
+    }
 
-    char * version;
-    version = (char *) calloc(sizeof(char), 20);
-    snprintf(version, 19,"%d", versionActual);
-    strcat(replace, version);
-    strcat(replace, "\"};");
-
-    free(version);
-
-    //reemplazo linea
-    strncpy(match, replace, strlen(replace));
-
-
-    /*abro y sobreescribo el codigo del cliente*/
-    FILE *fp;
-
-    fp = fopen("client_cc.c", "w");
-    fwrite(buffer, 1, strlen(buffer), fp);
-    fclose(fp);
-
-    free(buffer);
+    free(bufferUpdate);
+    close(socketFileDescr);
 
 }
 
