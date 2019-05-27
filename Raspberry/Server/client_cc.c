@@ -117,15 +117,29 @@ void scan(){
 
 	/* Envia todos los archivos en los que
 		fue dividida la imagen luego de ser
-		convertida a base 64 */
+		codificada en base 64 */
 
 	int TAM = 1448;
 	int i = 0;
 	char * buffer;
 	buffer = (char *) malloc(TAM);
 	
-	FILE *fp;	
+	FILE *fp;
 
+	/* Leo y envío el tamaño total de la imagen codificada */ 
+	system("stat -c \"%s\" Image/ImgB64 > count.txt");
+	fp = fopen("count.txt", "r");
+	fread(buffer, sizeof(char), TAM, fp);
+	fclose(fp);
+	enviarDato(buffer);
+
+	//Espero confirmacion del servidor
+	if(read(socketFileDescr, buffer, TAM) < 0){
+    	perror("lectura de socket");
+    	return;
+	}
+
+	/* Comienza envio del archivo */
 	while(1){
 		
 		//el nombre de los archivos incrementa numericamente
@@ -145,17 +159,10 @@ void scan(){
 			fclose(fp);
 		
 		    enviarDato(buffer);
-
-		    //Espero confirmacion del servidor
-			if(read(socketFileDescr, buffer, TAM) < 0){
-            	perror("lectura de socket");
-            	return;
-        	}
   		}
-  		//Si el archivo no se encuentra, termina
   		else{
+  			//Si el archivo no se encuentra, termina
   			printf("FIN DE ENVIO\n");
-  			enviarDato("FIN");
   			break;
   		}
 

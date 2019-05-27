@@ -182,7 +182,7 @@ void getImagenSatelital(){
     /* Obtiene todas las partes de la imagen satelital
         en base 64, las concatena y recupera la imagen */
 
-    bool receiving = true;
+    //bool receiving = true;
     char buffer[TAMIMG] = {""};
 
     //Reloj
@@ -192,10 +192,23 @@ void getImagenSatelital(){
     FILE *fp = NULL;
     int i=0;
 
+    /* Recibo y seteo la cantidad de bytes que voy a recibir */
+    if(read(newSockFd, buffer, TAMIMG) < 0){
+        perror("lectura de socket");
+        exit(ERROR);
+    }
+    int bytesTotales = atoi(buffer);
+    printf("bytesTotales = %d\n", bytesTotales);
+    int receiving = 0;
+
+    // Envio confirmacion
+    write(newSockFd, "ok", 2);
+
+    /* Recibo los fragmentos de la imagen codificada */
     printf("Obteniendo Imagen Satelital\n");
     start = clock();
 
-    while(receiving){
+    while(receiving != bytesTotales){
 
         char filename[8] = {""};
         sprintf(filename, "x%06d", i);
@@ -209,32 +222,29 @@ void getImagenSatelital(){
             exit(ERROR);
         }
 
-        if(!strcmp(buffer, "FIN")){
-            end = clock();
-            cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-            receiving = false;
-            printf("Imagen Obtenida en %f segundos\n", cpu_time_used);
+        receiving += strlen(buffer);
+
+        if(i%1000 == 0){
+            printf("%d archivos recibidos\n", i);
+        }
+        
+        fp = fopen(filename2, "w");
+        
+        if(fp != NULL){
+            fwrite(buffer, 1, strlen(buffer), fp);
+            fclose(fp);
         }
         else{
-
-            if(i%1000 == 0){
-                printf("%d archivos recibidos\n", i);
-            }
-            
-            fp = fopen(filename2, "w");
-            
-            if(fp != NULL){
-                fwrite(buffer, 1, strlen(buffer), fp);
-                fclose(fp);
-                write(newSockFd, "ok", 2);
-            }
-            else{
-                perror("ERROR AL ABRIR ARCHIVO");
-            }
-
-            i++;
+            perror("ERROR AL ABRIR ARCHIVO");
         }
+
+        i++;
     }
+
+    end = clock();
+    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+    receiving = false;
+    printf("Imagen Obtenida en %f segundos\n", cpu_time_used);
 
     printf("Procesando Imagen...\n");
 
