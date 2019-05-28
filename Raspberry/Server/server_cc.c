@@ -35,7 +35,6 @@
 #define SCAN 3
 #define EXIT 4
 
-#define TAMIMG 1500
 #define SIZE 256 //tamaño del buffer
 #define MTU 1448
 
@@ -140,69 +139,56 @@ void getImagenSatelital(){
 
     /* Obtiene todas las partes de la imagen satelital
         en base 64, las concatena y recupera la imagen */
-
-    //bool receiving = true;
-    char buffer[TAMIMG] = {""};
+    int TAM = 1500;
+    char buffer[TAM];
 
     //Reloj
     clock_t start, end;
     double cpu_time_used;
 
-    FILE *fp = NULL;
-    int i=0;
-
     /* Recibo y seteo la cantidad de bytes que voy a recibir */
-    if(read(newSockFd, buffer, TAMIMG) < 0){
+    if(read(newSockFd, buffer, TAM) < 0){
         perror("lectura de socket");
         exit(ERROR);
     }
+
     int bytesTotales = atoi(buffer);
     printf("bytesTotales = %d\n", bytesTotales);
-    int receiving = 0;
+    int bytesLeidos = 0;
+
+    
 
     // Envio confirmacion
-    write(newSockFd, "ok", 2);
+    write(newSockFd, "OK", 2);
 
     /* Recibo los fragmentos de la imagen codificada */
     printf("Obteniendo Imagen Satelital\n");
     start = clock();
 
-    while(receiving != bytesTotales){
+    FILE *fp = NULL;
+    fp = fopen("Recibido/imagenB64", "a");
 
-        char filename[8] = {""};
-        sprintf(filename, "x%06d", i);
-        char filename2[20] = {"Recibido/"};
-        strcat(filename2, filename);
+    while(bytesLeidos != bytesTotales){
 
+        
         memset(buffer, 0, sizeof(buffer));
 
-        if(read(newSockFd, buffer, TAMIMG) < 0){
+        if(read(newSockFd, buffer, TAM) < 0){
             perror("lectura de socket");
             exit(ERROR);
         }
 
-        receiving += strlen(buffer);
+        bytesLeidos += strlen(buffer);
 
-        if(i%1000 == 0){
-            printf("%d archivos recibidos\n", i);
-        }
-        
-        fp = fopen(filename2, "w");
-        
-        if(fp != NULL){
-            fwrite(buffer, 1, strlen(buffer), fp);
-            fclose(fp);
-        }
-        else{
-            perror("ERROR AL ABRIR ARCHIVO");
-        }
+        fwrite(buffer, 1, strlen(buffer), fp);
 
-        i++;
     }
+
+    fclose(fp);
 
     end = clock();
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    receiving = false;
+
     printf("Imagen Obtenida en %f segundos\n", cpu_time_used);
 
     printf("Procesando Imagen...\n");
@@ -216,11 +202,22 @@ void updateFirmware(){
     char buffer[SIZE];
     char *bufferUpdate = leerArchivo("client_cc.c");
     
-    int cantmens = (strlen(bufferUpdate)/MTU)+1;
-    printf("Cantmens = %d\n", cantmens);
+    /* Paso cantidad de bytes a enviar */
+    //ltoa(strlen(bufferUpdate), buffer, 10);
+    sprintf(buffer, "%lu", strlen(bufferUpdate));
+    if(write(newSockFd, buffer, MTU) < 0){
+        perror("escritura de socket");
+    }
 
+    /* Espero ok del cliente */
+    if(read(newSockFd, buffer, sizeof(buffer)-1) < 0){
+            perror("lectura");
+    }
+
+    /* Envio archivo en secciones de igual tamaño */
+    int cantmens = (strlen(bufferUpdate)/MTU)+1;
     int beg = 0;
-    
+
     for(int i=0;i<cantmens;i++){
 
         char substr[MTU] = {""};
@@ -228,19 +225,9 @@ void updateFirmware(){
 
         if(write(newSockFd, substr, MTU) < 0){
             perror("escritura de socket");
-            //exit(ERROR);
         }
 
         beg = beg+MTU;
-
-        if(read(newSockFd, buffer, sizeof(buffer)-1) < 0){
-            perror("lectura");
-        }
-
-    }
-
-    if(write(newSockFd, "FIN", strlen("FIN")) < 0){
-        perror("escritura de socket");
     }
 
     free(bufferUpdate);
@@ -452,4 +439,34 @@ void getTelemetria(){
         perror("ERROR CERRANDO SOCKET UDP");
     }
 
+}
+
+bool enviarDato(char dato[], bool terminate){
+    /* Envia un mensaje a traves del socket */
+    if(write(newSockFd, dato, strlen(dato)) < 0){
+        perror("escritura de socket");
+        
+        if(terminate){
+            exit(ERROR);
+        }
+
+        return false;
+    }
+
+    return true;
+}
+
+bool leerDato(char * buffer, int size, bool terminate){
+    /* Recibe mensaje a traves del socket */
+    if(read(newSockFd, buffer, size) < 0){
+        perror("lectura de socket");
+        
+        if(terminate){
+            exit(ERROR);
+        }
+
+        return false;
+    }
+
+    return true;
 }

@@ -9,6 +9,7 @@
 #include <time.h>
 #include <signal.h>
 #include <string.h>
+#include <stdbool.h>
 
 #define SIZE 800 //buffSize de buffer
 #define ERROR 1 //codigo de error para exit
@@ -19,10 +20,11 @@ void scan();
 void telemetria();
 void update();
 void enviarDato(char[]);
+void leerDato(char *, int, bool);
 char * getUptime();
 
 //int SAT_ID;
-char VERSION[] = {"3.3"};
+char VERSION[] = {"4.2"};
 char serverIP[16];
 int socketFileDescr;
 
@@ -44,9 +46,9 @@ int main(int argc, char *argv[]){
 	struct sockaddr_in sv_addr;
 	struct hostent *server;
 
-	//numero de puerto
+	// Numero de puerto
     puerto = atoi(argv[2]);
-    //Ip del server
+    // Ip del server
     strcpy(serverIP, argv[1]);
 
     if((socketFileDescr = socket(AF_INET, SOCK_STREAM, 0)) < 0){
@@ -54,7 +56,6 @@ int main(int argc, char *argv[]){
 		exit(ERROR);
 	}
 
-    //server = gethostbyname(argv[1]);
     server = gethostbyname(serverIP);
 	if (server == NULL) {
 		perror("Error, no existe el host");
@@ -84,10 +85,7 @@ int main(int argc, char *argv[]){
 
         memset(buffer, '\0', SIZE);
 
-        if(read(socketFileDescr, buffer, SIZE) < 0){
-            perror("lectura de socket");
-            exit(ERROR);
-        }
+        leerDato(buffer, SIZE, false);
 
   		switch(atoi(buffer)){
   			
@@ -138,10 +136,7 @@ void scan(){
 	enviarDato(buffer);
 
 	//Espero confirmacion del servidor
-	if(read(socketFileDescr, buffer, TAM) < 0){
-    	perror("lectura de socket");
-    	return;
-	}
+	leerDato(buffer, TAM, false);
 
 	/* Comienza envio del archivo */
 	while(1){
@@ -187,40 +182,41 @@ void update(){
 	int TAM = 1500;
 	char buffer[TAM];
 
+	/* Recibe el tamaño del archivo */
+	leerDato(buffer, TAM, true);
+	int bytesTotales = atoi(buffer);
+
+	enviarDato("OK");
+
 	FILE *fp;
+	fp = fopen("update.c", "a");
 
 	int index = 1;
+	int bytesLeidos = 0;
 
-	while(1){
+	while(bytesLeidos != bytesTotales){
 
 		memset(buffer, '\0', TAM);
+    	leerDato(buffer, TAM, true);
 
-		//Recibe el archivo
-		if(read(socketFileDescr, buffer, TAM) < 0){
-        	perror("lectura de socket");
-        	exit(ERROR);
-    	}
+    	bytesLeidos += strlen(buffer);
 
-    	if(!strcmp(buffer, "FIN")){
-    		break;
-    	}
-
-    	char * filename;
+    	/*char * filename;
     	filename = (char *) calloc(sizeof(char), 100);
     	snprintf(filename, 100,"UPDATE/cl%03d", index);
 
     	//guardo el archivo
     	fp = fopen(filename, "w");
-    	free(filename);
+    	free(filename);*/
 
     	fwrite(buffer, 1, strlen(buffer), fp);
-    	fclose(fp);
-
-    	enviarDato("OK");
+    	//fclose(fp);
 
     	index++;
 
 	}
+
+	fclose(fp);
 
 	printf("REBOOTING...\n");
 	system("./restart.sh");
@@ -322,11 +318,20 @@ void telemetria(){
 }
 
 void enviarDato(char dato[]){
-
 	/* Envia un mensaje a traves del socket */
-
 	if(write(socketFileDescr, dato, strlen(dato)) < 0){
         perror("escritura de socket");
         exit(ERROR);
     }
+}
+
+void leerDato(char * buffer, int size, bool terminate){
+	/* Recibe mensaje a traves del socket */
+	if(read(socketFileDescr, buffer, size) < 0){
+		perror("lectura de socket");
+		
+		if(terminate){
+			exit(ERROR);
+		}
+	}
 }
