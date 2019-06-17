@@ -47,8 +47,11 @@ void conectarSocket(char[]);
 void getTelemetria();
 void getImagenSatelital();
 
+bool enviarDato(char[], bool);
+bool leerDato(char *, int, bool);
 
 int socketFileDescr, newSockFd;
+size_t fileReadSz;
 
 const char *commands[4] = { "update firmware.bin", 
                             "obtener telemetria", 
@@ -100,32 +103,33 @@ int main(int argc, char *argv[]){
         //Si el comando existe lo envio
         if(num >= 0){
 
-            if(write(newSockFd, buffer, strlen(buffer)) < 0){
-                perror("\n\nEL CLIENTE SE HA DESCONECTADO");
+            if(!enviarDato(buffer, false)){
+                perror("EL CLIENTE SE HA DESCONECTADO");
+                close(newSockFd);
                 close(socketFileDescr);
                 conectarSocket(argumento);
             }
 
-            //exit: termino la ejecucion del programa
+            // Exit: termino la ejecucion del programa
             if(num == EXIT){
-                if(close(socketFileDescr) < 0){
-                    perror("ERROR CERRANDO SOCKET");
-                }
-
+                close(newSockFd);
+                close(socketFileDescr);
                 exit(0);
             }
 
-            //Update Firmware.bin
+            // Update Firmware.bin
             if(num == UPDATE){
                 updateFirmware();
                 usleep(5000);
                 conectarSocket(argumento);
             }
 
+            // Obtener Telemetria
             if(num == TELE){
                 getTelemetria();
             }
 
+            // Start Scanning
             if(num == SCAN){
                 getImagenSatelital();
             }
@@ -147,19 +151,14 @@ void getImagenSatelital(){
     double cpu_time_used;
 
     /* Recibo y seteo la cantidad de bytes que voy a recibir */
-    if(read(newSockFd, buffer, TAM) < 0){
-        perror("lectura de socket");
-        exit(ERROR);
-    }
+    leerDato(buffer, TAM, true);
 
     int bytesTotales = atoi(buffer);
     printf("bytesTotales = %d\n", bytesTotales);
     int bytesLeidos = 0;
 
-    
-
     // Envio confirmacion
-    write(newSockFd, "OK", 2);
+    enviarDato("OK", false);
 
     /* Recibo los fragmentos de la imagen codificada */
     printf("Obteniendo Imagen Satelital\n");
@@ -169,17 +168,12 @@ void getImagenSatelital(){
     fp = fopen("Recibido/imagenB64", "a");
 
     while(bytesLeidos != bytesTotales){
-
-        
+   
         memset(buffer, 0, sizeof(buffer));
 
-        if(read(newSockFd, buffer, TAM) < 0){
-            perror("lectura de socket");
-            exit(ERROR);
-        }
+        leerDato(buffer, TAM, false);
 
         bytesLeidos += strlen(buffer);
-
         fwrite(buffer, 1, strlen(buffer), fp);
 
     }
@@ -200,34 +194,24 @@ void getImagenSatelital(){
 void updateFirmware(){
 
     char buffer[SIZE];
-    char *bufferUpdate = leerArchivo("client_cc.c");
+    //char *bufferUpdate = leerArchivo("client_cc.c");
+    char *bufferUpdate = leerArchivo("update");
     
     /* Paso cantidad de bytes a enviar */
-    //ltoa(strlen(bufferUpdate), buffer, 10);
-    sprintf(buffer, "%lu", strlen(bufferUpdate));
-    if(write(newSockFd, buffer, MTU) < 0){
-        perror("escritura de socket");
-    }
+    //sprintf(buffer, "%lu", strlen(bufferUpdate));
+    sprintf(buffer, "%lu", fileReadSz*sizeof(int));
+    printf("buffer tam: %s\n", buffer);
+    enviarDato(buffer, false);
 
     /* Espero ok del cliente */
-    if(read(newSockFd, buffer, sizeof(buffer)-1) < 0){
-            perror("lectura");
-    }
+    leerDato(buffer, SIZE, false);
 
     /* Envio archivo en secciones de igual tamaño */
-    int cantmens = (strlen(bufferUpdate)/MTU)+1;
-    int beg = 0;
+    //int cantmens = (strlen(bufferUpdate)/MTU)+1;
 
-    for(int i=0;i<cantmens;i++){
-
-        char substr[MTU] = {""};
-        strncpy(substr, bufferUpdate+beg, MTU);
-
-        if(write(newSockFd, substr, MTU) < 0){
-            perror("escritura de socket");
-        }
-
-        beg = beg+MTU;
+    if(write(newSockFd, bufferUpdate, fileReadSz*sizeof(int)) < 0){
+        perror("escritura de socket");
+        exit(ERROR);
     }
 
     free(bufferUpdate);
@@ -243,24 +227,26 @@ char * leerArchivo(char file[]){
     unsigned long TAM;
 
 
-    fp = fopen(file, "r"); // modo de lectura
+    //fp = fopen(file, "r"); // modo de lectura
+    fp = fopen(file, "rb"); // modo de lectura
 
     if (fp == NULL){
         perror("ERROR abriendo archivo\n");
         exit(ERROR);
     }
 
-    TAM = sizeof(char) * 50000; //max de 50Kb
+    //TAM = sizeof(char) * 50000; //max de 50Kb
+    TAM = sizeof(int) * 50000; //max de 50Kb
 
     char * buffer = malloc(TAM);
-    size_t bytes_read;
+    //size_t bytes_read;
 
 
-    bytes_read = fread(buffer, 1, TAM-1, fp);
+    //bytes_read = fread(buffer, 1, TAM-1, fp);
+    fileReadSz = fread(buffer, sizeof(int), TAM-1, fp);
+    printf("bytes_read: %lu\n", fileReadSz);
     
     fclose(fp);
-
-    //buffer[bytes_read] = "\0";
 
     return buffer;
 }
@@ -334,7 +320,8 @@ void conectarSocket(char argv[]){
 
     /* Gestiona creación y conexión del socket tcp */
 
-    int puerto, cl_len;
+    int puerto; 
+    unsigned int cl_len;
     struct sockaddr_in sv_addr, cl_addr;
 
     printf("\n-- Esperando la conexion con el satelite --\n");

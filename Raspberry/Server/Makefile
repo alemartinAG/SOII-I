@@ -1,8 +1,8 @@
 CC=gcc
-CFLAGS=-Werror​ -Wall -pedantic
+CFLAGS=-Werror -Wall -pedantic
 
 all:
-	$(CC) server_cc.c -o server
+	$(CC) $(CFLAGS) server_cc.c -o server
 
 runserver:
 	./server 27415

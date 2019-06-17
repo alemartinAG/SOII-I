@@ -20,7 +20,7 @@ void scan();
 void telemetria();
 void update();
 void enviarDato(char[]);
-void leerDato(char *, int, bool);
+int leerDato(char *, int, bool);
 char * getUptime();
 
 //int SAT_ID;
@@ -189,7 +189,8 @@ void update(){
 	enviarDato("OK");
 
 	FILE *fp;
-	fp = fopen("client_update.c", "a");
+	//fp = fopen("client_update.c", "a");
+	fp = fopen("update", "a");
 
 	int index = 1;
 	int bytesLeidos = 0;
@@ -197,11 +198,14 @@ void update(){
 	while(bytesLeidos != bytesTotales){
 
 		memset(buffer, '\0', TAM);
-    	leerDato(buffer, TAM, true);
+    	int leido = leerDato(buffer, TAM, true);
 
-    	bytesLeidos += strlen(buffer);
+    	bytesLeidos += leido;
+    	//bytesLeidos += strlen(buffer);
+    	printf("buffer: %d / %d\n", bytesLeidos, bytesTotales);
 
-    	fwrite(buffer, 1, strlen(buffer), fp);
+    	//fwrite(buffer, 1, strlen(buffer), fp);
+    	fwrite(buffer, 1, leido, fp);
 
     	index++;
 
@@ -265,7 +269,7 @@ void telemetria(){
 	uptime = strtol(buff_uptime, &ptr, 10);
 
 	memset(buff_uptime, '\0', SIZE-1);
-    sprintf(buff_uptime, "Uptime: %02dD %02d:%02d:%02d", (uptime / 60 / 60 / 24), (uptime / 60 / 60 % 24), (uptime / 60 % 60), (uptime % 60));
+    sprintf(buff_uptime, "Uptime: %02ldD %02ld:%02ld:%02ld", (uptime / 60 / 60 / 24), (uptime / 60 / 60 % 24), (uptime / 60 % 60), (uptime % 60));
 
 
     /*Obtengo memmory y cpu ussage*/
@@ -316,13 +320,17 @@ void enviarDato(char dato[]){
     }
 }
 
-void leerDato(char * buffer, int size, bool terminate){
+int leerDato(char * buffer, int size, bool terminate){
 	/* Recibe mensaje a traves del socket */
-	if(read(socketFileDescr, buffer, size) < 0){
+	int leido = 0;
+	leido = read(socketFileDescr, buffer, size);
+	if(leido < 0){
 		perror("lectura de socket");
 		
 		if(terminate){
 			exit(ERROR);
 		}
 	}
+
+	return leido;
 }
