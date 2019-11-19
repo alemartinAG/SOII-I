@@ -83,7 +83,7 @@ int main(int argc, char *argv[]){
  	
 	while(1){
 
-        memset(buffer, '\0', SIZE);
+        memset(buffer, '\0', SIZE-1);
 
         leerDato(buffer, SIZE, false);
 
@@ -121,18 +121,22 @@ void scan(){
 		fue dividida la imagen luego de ser
 		codificada en base 64 */
 
+	printf("\n - COMIENZO DEL ESCANEO - \n");
+
 	int TAM = 1448;
 	int i = 0;
 	char * buffer;
-	buffer = (char *) malloc(TAM);
+	//buffer = (char *) malloc(TAM);
+	buffer = calloc(TAM, sizeof(char));
 	
 	FILE *fp;
 
 	/* Leo y envío el tamaño total de la imagen codificada */ 
 	system("stat -c \"%s\" Image/ImgB64 > count.txt");
 	fp = fopen("count.txt", "r");
-	fread(buffer, sizeof(char), TAM, fp);
+	fread(buffer, sizeof(char), TAM-1, fp);
 	fclose(fp);
+	
 	enviarDato(buffer);
 
 	//Espero confirmacion del servidor
@@ -143,7 +147,8 @@ void scan(){
 		
 		//el nombre de los archivos incrementa numericamente
 		char *filename;
-		filename = (char *) calloc(sizeof(char),20);
+		//filename = (char *) calloc(sizeof(char),20);
+		filename = calloc(20, sizeof(char));
 		strcpy(filename, "A");
 		snprintf(filename, 19, "Image/x%06d", i);
 
@@ -152,7 +157,7 @@ void scan(){
 
   		if (fp!=NULL)
   		{
-  			memset(buffer, 0, TAM);
+  			memset(buffer, 0, TAM-1);
 		    fread(buffer, 1, TAM, fp);
 			
 			fclose(fp);
@@ -161,7 +166,8 @@ void scan(){
   		}
   		else{
   			//Si el archivo no se encuentra, termina
-  			printf("FIN DE ENVIO\n");
+  			printf(CLEAR);
+  			printf(" - FIN DE ENVIO - \n");
   			break;
   		}
 
@@ -177,7 +183,7 @@ void update(){
 	/* Recibe el archivo binario de la actualizacion,
 		reemplaza el propio, y se reinicia */
 
-	printf("-UPDATE-\n");
+	printf("\n - UPDATE - \n");
 
 	int TAM = 1500;
 	char buffer[TAM];
@@ -202,7 +208,6 @@ void update(){
 
     	bytesLeidos += leido;
     	//bytesLeidos += strlen(buffer);
-    	printf("buffer: %d / %d\n", bytesLeidos, bytesTotales);
 
     	//fwrite(buffer, 1, strlen(buffer), fp);
     	fwrite(buffer, 1, leido, fp);
@@ -213,6 +218,7 @@ void update(){
 
 	fclose(fp);
 
+	printf(CLEAR);
 	printf("REBOOTING...\n");
 	system("./restart.sh");
 

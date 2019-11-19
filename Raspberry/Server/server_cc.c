@@ -139,22 +139,38 @@ int main(int argc, char *argv[]){
     }
 }
 
+// Si no es el primer comando lee basura del buffer?
+
 void getImagenSatelital(){
 
     /* Obtiene todas las partes de la imagen satelital
         en base 64, las concatena y recupera la imagen */
     int TAM = 1500;
-    char buffer[TAM];
+    //char buffer[TAM];
+    char * buffer;
+    buffer = calloc(TAM, sizeof(char));
+    FILE *fp = NULL;
 
     //Reloj
-    clock_t start, end;
-    double cpu_time_used;
+    //clock_t start, end;
+    //double cpu_time_used;
+
+    char start[64];
+    char end[64];
+    //int sh, sm, ss;
+    //int eh, em, es;
+
+    system("date +\"%T\" > time.txt");
+    fp = fopen("time.txt", "r");
+    fread(start, 1, 64, fp);
+    fclose(fp);
 
     /* Recibo y seteo la cantidad de bytes que voy a recibir */
-    leerDato(buffer, TAM, true);
+    leerDato(buffer, TAM-1, true);
 
     int bytesTotales = atoi(buffer);
-    printf("bytesTotales = %d\n", bytesTotales);
+    //printf("bytesTotales = %d - %s\n", bytesTotales, start);
+    printf("%s\n", start);
     int bytesLeidos = 0;
 
     // Envio confirmacion
@@ -162,16 +178,16 @@ void getImagenSatelital(){
 
     /* Recibo los fragmentos de la imagen codificada */
     printf("Obteniendo Imagen Satelital\n");
-    start = clock();
+    //start = clock();
 
-    FILE *fp = NULL;
+    
     fp = fopen("Recibido/imagenB64", "a");
 
-    while(bytesLeidos != bytesTotales){
+    while(bytesLeidos < bytesTotales){
    
-        memset(buffer, 0, sizeof(buffer));
+        memset(buffer, 0, TAM-1);
 
-        leerDato(buffer, TAM, false);
+        leerDato(buffer, TAM-1, false);
 
         bytesLeidos += strlen(buffer);
         fwrite(buffer, 1, strlen(buffer), fp);
@@ -179,11 +195,19 @@ void getImagenSatelital(){
     }
 
     fclose(fp);
+    free(buffer);
 
-    end = clock();
-    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+    //end = clock();
+    //cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
 
-    printf("Imagen Obtenida en %f segundos\n", cpu_time_used);
+    system("date +\"%T\" > time.txt");
+    fp = fopen("time.txt", "r");
+    fread(end, 1, 64, fp);
+    fclose(fp);
+
+    printf("%s\n", end);
+
+    //printf("Imagen Obtenida en %f segundos\n", end);
 
     printf("Procesando Imagen...\n");
 
@@ -195,7 +219,7 @@ void updateFirmware(){
 
     char buffer[SIZE];
     //char *bufferUpdate = leerArchivo("client_cc.c");
-    char *bufferUpdate = leerArchivo("update");
+    char *bufferUpdate = leerArchivo("update-raspbian");
     
     /* Paso cantidad de bytes a enviar */
     //sprintf(buffer, "%lu", strlen(bufferUpdate));
